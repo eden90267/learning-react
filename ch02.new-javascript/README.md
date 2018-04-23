@@ -428,3 +428,86 @@ trip.print()
 
 ## ES6 模組
 
+JavaScript 的模組是一段其他 JavaScript 檔案可重複使用的程式碼。現在 ES6 本身已經支援模組。
+
+JavaScript
+模組儲存於獨立的檔案中，每個檔案為一個模組。建構與匯出模組時有兩個選項：你可以從單一模組繪出多個
+JavaScript 物件，或每個模組一個 JavaScript 物件。
+
+以下匯出模組與兩個函式
+
+```javascript
+// ./test-helpers.js
+export const print = (message) => log(message, new Date());
+
+export const log = (message, timestamp) => console.log(`${timestamp.toString()}: ${message}`)
+```
+
+export 用於匯出其他模組使用的 JavaScript 型別。此例中的 print 函式與 log
+函式被匯出。宣告 test-helpers.js 的其他變數是該模組的區域變數。
+
+有時你會只從模組匯出一個變數。在這情況下你可使用 export default
+
+```javascript
+const freel = new Expedition("Mt. Freel", 2, ["water", "snack"]);
+
+export default freel;
+```
+
+只想要匯出一個型別時可用 export default 取代 export。export 與 export
+default 可用於任何 JavaScript 型別：原始、物件、陣列與函式。
+
+其他 JavaScript 檔案可使用 import
+陳述運用模組。具有多個匯出的模組可利用物件解構。使用 export default 的模組會匯入到單一變數中：
+
+```javascript
+import {print, log} from './text-helpers'
+import freel from './mt-freel'
+
+print('printing a message')
+
+log('logging a message')
+
+freel.print()
+```
+
+你可在區域範圍內用不同變數名稱設定模組變數：
+
+```javascript
+import {print as p, log as l} from './text-helpers'
+
+p('printing a message')
+l('logging a message')
+```
+
+你也可使用 * 匯入所有東西到單一變數中：
+
+```javascript
+import * as fns from './text-helpers'
+```
+
+ES6 模組還未被所有瀏覽器支援。Babel 有支援 ES6 模組。本書會使用它們。
+
+## CommonJS
+
+CommonJS 是所有 Node.js 版本支援的模組模式。你還是可在 Babel 與 webpack
+中使用這些模組。
+
+```javascript
+const print = (message) => log(message, new Date());
+
+const log = (message, timestamp) => console.log(`${timestamp.toString()}: ${message}`)
+
+module.exports = {
+  print,
+  log
+}
+```
+
+CommonJS 並不支援 import 陳述，相對的，模組以 require 函式匯入：
+
+```javascript
+const {log, print} = require('./text-helpers')
+```
+
+ES6 規格中的許多功能會被納入是因為他們支援函式性程式語言技術。函式性 JavaScript 中，我們可以將程式碼視為一群應用程式可使用的函式的集合。下一章會更深入討論函式性技術與為何要使用它們。
