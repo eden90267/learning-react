@@ -206,3 +206,228 @@ const rateColor = (color, rating) =>
     rating
   })
 ```
+
+使用箭頭函式不能指向物件的大括弧。
+
+以顏色名稱的陣列為例：
+
+```javascript
+let list = [
+  {title: "Rad Red"},
+  {title: "Lawn"},
+  {title: "Party Pink"}
+]
+```
+
+我們可用 Array.push 建構新增顏色到該陣列的函式
+
+```javascript
+var addColor = function(title, colors) {
+  colors.push({title: title});
+  return colors;
+}
+
+console.log(addColor("Glam Green", list).length);
+console.log(list.length);
+```
+
+但 Array.push 不是不可變函式。我們必須改用 Array.concat：
+
+```javascript
+const addColor = (title, array) => array.concat({title});
+
+console.log(addColor("Glam Green", list).length);
+console.log(list.length);
+```
+
+Array.concat 連接陣列。此例中，它將新物件與新顏色加入原始陣列的副本中。
+
+你也可使用 ES6 展開運算子以用於副本物件的相同方式連接陣列
+
+```javascript
+const addColor = (title, list) => [...list, {title}]
+```
+
+此函式複製原始的清單到新陣列中並加入新顏色物件到副本中。它是不可變的。
+
+### 純函式
+
+純函式是依參數計算回傳值的函式。純函式至少有一個參數並回傳值或另一個函式。它們沒有副作用、不改變全域變數或應用程式狀態。它們視參數為不可變資料。
+
+此為一個不純函式：
+
+```javascript
+var frederick = {
+  name: "Frederick Douglass",
+  canRead: false,
+  canWrite: false
+}
+
+function selfEducate() {
+  frederick.canRead = true
+  frederick.canWrite = true
+  return frederick
+}
+
+selfEducate()
+console.log(frederick)
+```
+
+selfEducate
+函式不是純函式。它沒有任何參數且不回傳值或函式。它還會改變範圍外的變數：Frederick。叫用
+selfEducate 函式後，“世界” 發生了一些變化，它產生了副作用。
+
+```javascript
+const frederick = {
+  name: "Frederick Douglass",
+  canRead: false,
+  canWrite: false
+}
+
+const selfEducate = (person) => {
+  person.canRead = true
+  person.canWrite = true
+  return person
+}
+
+console.log(selfEducate(frederick))
+console.log(frederick)
+// {name: "Frederick Douglass", canRead: true, canWrite: true}
+// {name: "Frederick Douglass", canRead: true, canWrite: true}
+```
+
+> Tip！ 純函式可測試：測試純函式時，你控制參數並可評估結果。
+
+selfEducate
+函式是不純的：它會產生副作用。叫用此函式會改變傳給它的物件。若我們能將傳給此函式的參數視為不可變資料，則可得到一個純函式。
+
+```javascript
+const frederick = {
+  name: "Frederick Douglass",
+  canRead: false,
+  canWrite: false
+}
+
+const selfEducate = (person) => ({
+  ...person,
+  canRead: true,
+  canWrite: true
+})
+
+console.log(selfEducate(frederick))
+console.log(frederick)
+// {name: "Frederick Douglass", canRead: true, canWrite: true}
+// {name: "Frederick Douglass", canRead: false, canWrite: false}
+```
+
+此版本的 selfEducate 終於變成純函式。
+
+接著檢視一個改變 DOM 的不純函式：
+
+```javascript
+function Header(text) {
+  let h1 = document.createElement('h1');
+  h1.innerText = text;
+  document.body.appendChild(h1);
+}
+
+Header("Header() caused side effects");
+```
+
+此函式沒有回傳函式或值，且有副作用：改變 DOM。
+
+在 React 中，UI 以純函式表示。
+
+```javascript
+const Header = (props) => <h1>{props.title}</h1>
+```
+
+此函式沒有副作用，因為它不改變
+DOM。此函式會建構一個標頭元素，由應用程式的其他部分改變 DOM。
+
+純函式是函式性程式設計的另一個核心概念。它們使得事情變得簡單，因為它們不會影響應用程式的狀態。撰寫函式時，嘗試依循下列三個規則：
+
+1. 函式應該至少取用一個參數
+2. 函式一個回傳一個值或其他函式
+3. 函是不應該改變或轉換任何參數
+
+### 資料轉換
+
+函式性程式設計與轉換資料有關。我們會使用函式產生轉換過的副本。這些函式讓我們的程式較不命令式而因此減少複雜性。
+
+你無須特殊的架構以理解如何根據資料集產生另一個資料集。JavaScript
+有內建必要的工具。你必須熟悉兩個核心函式以便運用函式性 JavaScript:：Array.map 與 Array.reduce。
+
+以下列高中陣列為例：
+
+```javascript
+const schools = [
+  "Yorktown",
+  "Washington & Lee",
+  "Wakefield"
+]
+```
+
+我們可使用 Array.join 函式獲得以逗號分隔的字串：
+
+```javascript
+console.log(schools.join(", "))
+// Yorktown, Washington & Lee, Wakefield
+```
+
+原始陣列還是維持原狀；join 只是提供另一種看法。如何產生字串的細節對程式設計師是抽離的。
+
+要撰寫製作以“W”開頭的高中之新陣列函式，我們可使用 Array.filter 方法：
+
+```javascript
+const wSchools = schools.filter(school => school[0] === W)
+
+console.log(wSchools);
+// ["Washington & Lee", "Wakefield"]
+```
+
+此函式以**述詞**作為唯一的參數。述詞是回傳布林值的函式。Array.filter
+對陣列的每一個元素叫用述詞一次。元素作為參數傳給述詞並回傳判斷是否加入新陣列的值。
+
+要從陣列移除元素時應該使用 Array.filter 而非 Array.pop or Array.splice，因為
+Array.filter 是不可變的。
+
+```javascript
+const cutSchool = (cut, list) =>
+  list.filter(school => school !== cut)
+
+console.log(cutSchool("Washington & Lee", schools).join(" * "));
+
+// "Yorktown * Wakefield"
+
+console.log(schools.join("\n"));
+
+// Yorktown
+// Washington & Lee
+// Wakefield
+```
+
+另一個函式性程式設計的基本陣列是 Array.map。相較於述詞，Array.map 方法取用一個函式作為參數。此函式會以陣列每個元素呼叫一次，回傳結果會加入新陣列：
+
+```javascript
+const highSchools = schools.map(school => `${school} High School`);
+```
+
+map 函式用於添加 "High School" 到每個學校名稱後面。schools 陣列還是維持原狀。
+
+下一個範例從一個字串陣列產生另一個字串陣列。map
+函式可產生物件、值、陣列，或其他函式——任何 JavaScript 型別的陣列。
+
+```javascript
+const highSchools = schools.map(school => ({name: school}))
+
+console.log(highSchools);
+
+// [
+//    {name: "Yorktown"}
+//    {name: "Washington & Lee"}
+//    {name: "Wakefield"}
+// ]
+```
+
+它以字串陣列產生物件陣列
