@@ -424,10 +424,156 @@ const highSchools = schools.map(school => ({name: school}))
 console.log(highSchools);
 
 // [
-//    {name: "Yorktown"}
-//    {name: "Washington & Lee"}
+//    {name: "Yorktown"},
+//    {name: "Washington & Lee"},
 //    {name: "Wakefield"}
 // ]
 ```
 
-它以字串陣列產生物件陣列
+它以字串陣列產生物件陣列。
+
+若需要建構改變物件陣列中的一個物件的純函式也可使用 map。
+
+```javascript
+const editName = (oldName, name, arr) =>
+  arr.map(item => (item.name === oldName) ? 
+      ({...item, name}) : 
+      item
+  )
+
+let schools = [
+  {name: "Yorktown"},
+  {name: "Stratford"},
+  {name: "Washington & Lee"},
+  {name: "Wakefield"}
+]
+
+let updatedSchools = editName("Stratford", "HB Woodlawn", schools);
+
+console.log(updatedSchools[1]); // { name: "HB Woodlawn" }
+console.log(schools[1]);        // { name: "Stratford" }
+```
+
+若需要轉換陣列成物件，你可使用 Array.map 與 Object.keys。Object.keys 是從物件回傳鍵陣列的方法。
+
+假設我們要將 schools 物件轉換成學校陣列：
+
+```javascript
+const schools = {
+  "Yorktown": 10,
+  "Washington & Lee": 2,
+  "Wakefield": 5
+}
+
+const schoolArray = Object.keys(schools).map(key =>
+  ({
+    name: key,
+    wins: schools[keys]
+  }))
+
+console.log(schoolArray);
+
+// [
+//   {
+//     name: "Yorktown",
+//     wins: 10
+//   },
+//   // ...
+// ]
+
+```
+
+此例中，Object.keys 回傳學校名稱的陣列，我們可以對該陣列使用 map
+產生相同長度的新陣列。
+
+我們學到了 Array.map、Array.filter 轉換陣列，以 Object.keys 與 Array.map
+陣列轉物件。最後一個，我們可運用的函式性工具可轉換陣列成原始值與其他物件。
+
+reduce 與 reduceRight 韓式可用於轉換陣列成任何值，包括數字、字串、布林、物件，甚至是函式。
+
+假設我們需要找出數字陣列中的最大數字。我們必須將陣列轉換成數字：因此可用 reduce：
+
+```javascript
+const ages = [21,18,42,40,64,63,34];
+
+const maxAge = ages.reduce((max, value) => (value > max) ? value : max, 0);
+
+console.log(maxAge); // 64
+```
+
+reduce 有兩個參數：callback 函式與原始值。
+
+Array.reduceRight 的運作與 Array.reduce 相同；差別是從陣列後面而非前面開始。
+
+有時候我們需要將陣列轉換成物件。下面範例使用 reduce 將顏色陣列轉換成雜湊：
+
+```javascript
+const colors = [
+  {
+    id: '-xekare',
+    title: "rad red",
+    rating: 3
+  },
+  {
+    id: '-jbwsof',
+    title: "big blue",
+    rating: 2
+  },
+  {
+    id: '-prigbj',
+    title: "grizzly grey",
+    rating: 5
+  },
+  {
+    id: '-ryhbhsl',
+    title: "banana",
+    rating: 1
+  }
+]
+
+const hashColors = colors.reduce((hash, {id, title, rating}) => {
+  hash[id] = {title, rating}
+  return hash
+}, {});
+
+console.log(hashColors);
+// {
+//   "xekare": {
+//     title: "rad red".
+//     rating: 3
+//   },
+//   "jbwsof": {
+//     title: "big blue",
+//     rating: 2
+//   }
+//   // ...
+// }
+```
+
+每一輪中，callback 函式使用方括號記號法對雜湊加入新的鍵，並設定鍵對應的值為陣列的
+id 欄位。Array.reduce 能以這種方式將陣列減為單一值——此例中是一個物件。
+
+我們甚至可以用 reduce
+將陣列轉換成完全不同的陣列。要將具有多個相同值的元素的陣列轉換成元素均為不同值的陣列時，可使用
+reduce 方法。
+
+```javascript
+const colors = ["red", "red", "green", "blue", "green"];
+
+const distinctColors = colors.reduce(
+  (distinct, color) =>
+    distinct.indexOf(color) !== -1 ? distinct : [...distinct, color]
+,[])
+
+console.log(distinctColors);
+```
+
+map 與 reduce 是函式性程式設計師的武器，JavaScript 也不例外。若想要成為
+JavaScript 專家，你必須熟練這些函式。從一個資料級建構另一個資料級的能力是必要條件，且對任何類型的程式設計方式都很有用。
+
+### 高階函式
+
+使用**高階函式**也是函式性程式設計的基礎。高階函式是能夠操作其他函式的函式，它們可取用函式作為參數或回傳函式。
+
+第一類高階函式是預期函式參數的函式。Array.map、Array.filter 與 Array.reduce
+都以函式作為參數，它們是高階函式。
