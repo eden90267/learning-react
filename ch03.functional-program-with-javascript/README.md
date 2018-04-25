@@ -577,3 +577,26 @@ JavaScript 專家，你必須熟練這些函式。從一個資料級建構另一
 
 第一類高階函式是預期函式參數的函式。Array.map、Array.filter 與 Array.reduce
 都以函式作為參數，它們是高階函式。
+
+來看一下如何實作高階函式。在下面範例中，我們建構 invokeIf 這個 callback
+函式，它測試一個條件並視結果呼叫 callback 函式：
+
+```javascript
+const invokeIf = (condition, fnTrue, fnFalse) =>
+    condition ? fnTrue() : fnFalse()
+    
+const showWelcome = () =>
+    console.log("Welcome")
+    
+const showUnauthorized = () =>
+    console.log("Unauthorized!!!")
+    
+invokeIf(true, showWelcome, showUnauthorized);
+invokeIf(false, showWelcome, showUnauthorized);
+```
+
+回傳其他函式的高階函式可以幫助我們處理 JavaScript 中非同步的複雜性。它們可以幫助我們建構可方便重複使用的函式。
+
+柯里化 (currying)
+是一種涉及高階函式的函式性技術，柯里化維持一些完成一個操作所需要的值直到稍後取得其餘值為止。它透過使用回傳另一個科里化函式的函式進行。
+
