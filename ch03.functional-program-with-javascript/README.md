@@ -489,7 +489,8 @@ console.log(schoolArray);
 我們學到了 Array.map、Array.filter 轉換陣列，以 Object.keys 與 Array.map
 陣列轉物件。最後一個，我們可運用的函式性工具可轉換陣列成原始值與其他物件。
 
-reduce 與 reduceRight 韓式可用於轉換陣列成任何值，包括數字、字串、布林、物件，甚至是函式。
+reduce 與 reduceRight
+函式可用於轉換陣列成任何值，包括數字、字串、布林、物件，甚至是函式。
 
 假設我們需要找出數字陣列中的最大數字。我們必須將陣列轉換成數字：因此可用 reduce：
 
@@ -569,7 +570,8 @@ console.log(distinctColors);
 ```
 
 map 與 reduce 是函式性程式設計師的武器，JavaScript 也不例外。若想要成為
-JavaScript 專家，你必須熟練這些函式。從一個資料級建構另一個資料級的能力是必要條件，且對任何類型的程式設計方式都很有用。
+JavaScript
+專家，你必須熟練這些函式。從一個資料集建構另一個資料集的能力是必要條件，且對任何類型的程式設計方式都很有用。
 
 ### 高階函式
 
@@ -600,3 +602,168 @@ invokeIf(false, showWelcome, showUnauthorized);
 柯里化 (currying)
 是一種涉及高階函式的函式性技術，柯里化維持一些完成一個操作所需要的值直到稍後取得其餘值為止。它透過使用回傳另一個科里化函式的函式進行。
 
+下面是一個柯里化的範例。userLogs 函式維持一些資訊 (userName)
+並回傳於取得其餘資訊 (message)
+時使用的函式。此例中，輸出訊息會先加上使用者名稱。請注意，我們使用來自第二章回傳
+promise 的 getFakeMembers 函式：
+
+```javascript
+const userLogs = userName => message =>
+    console.log(`${userName} -> ${message}`)
+
+const log = userLogs("grandpa23");
+log("attempted to load 20 fake members");
+
+
+const getFakeMembers = count => new Promise((resolves, rejects) => {
+  const api = `https://api.randomuser.me/?nat=US&results=${count}`
+  const request = new XMLHttpRequest()
+  request.open('GET', api)
+  request.onload = () =>
+      (request.status === 200) ?
+      resolves(JSON.parse(request.response).results) :
+      rejects(Error(request.statusText))
+  request.onerror = (err) => rejects(err)
+  request.end
+})
+
+getFakeMembers(20).then(
+  members => log(`successfully loaded ${members.length} members`),
+  error => log(`encountered an error loading members`)
+)
+```
+
+userLogs 是個高階函式。log 函式以 userLogs 製作，每次使用 log
+函式時會在訊息前面先加上 "grandpa23"
+
+### 遞迴
+
+遞迴是一種建構呼叫自己的函式的技術。涉及迴圈的問題通常可以遞迴函式取代。以倒數 10
+的工作為例，我們可以使用 for 迴圈或改以遞迴函式解決問題。此例中，countdown 是遞迴函式：
+
+```javascript
+const countdown = (value, fn) => {
+  fn(value);
+  return value > 0 ? countdown(value - 1, fn) : value;
+}
+
+countdown(10, value => console.log(value));
+```
+
+> Top! 瀏覽器的呼叫堆疊限制：  
+> 盡量使用遞迴而非迴圈，但並非所有 JavaScript
+> 引擎都有對大量遞迴作最佳化。太多遞迴會引發 JavaScript
+> 錯誤。這些錯誤可透過實作清除呼叫堆疊與攤平遞迴呼叫的技巧來避免。未來的
+> JavaScript 引擎計畫要完全消滅呼叫堆疊的限制。
+
+遞迴是處理非同步程序的另一個函式性技術。函式可於就緒時呼叫自己。
+
+countdown 函式可修改加上延遲。修改過的 countdown 函式可用於建構倒數碼表：
+
+```javascript
+const countdown = (value, fn, delay=1000) => {
+  fn(value)
+  return (value > 0) ? setTimeout(() => countdown(value - 1, fn, delay), delay) : value
+}
+
+const log = value => console.log(value);
+countdown(10, log);
+```
+
+遞迴是搜尋資料結構的好方法。你可以使用遞迴迭代整個子目錄，直到找到只有檔案的目錄。你也可以遞迴迭代整個
+HTML DOM，直到找到沒有子元素的目錄。下一個範例使用遞迴迭代一個物件以擷取嵌套值：
+
+```javascript
+var dan = {
+  type: "person",
+  data: {
+    gender: "male",
+    info: {
+      id: 22,
+      fullname: {
+        first: "Dan",
+        last: "Deacon"
+      }
+    }
+  }
+}
+
+const deepPick = (fields, object={}) => {
+  const [first, ...remaining] = fields.split(".");
+  return (remaining.length) ?
+      deepPick(remaining.join("."), object[first]) : object[first]
+}
+
+deepPick("type", dan); // "person"
+deepPick("data.info.fullname.first", dan); // "Dan"
+```
+
+遞迴是實作起來很有趣實用函式性技術。盡可能以遞迴代替迴圈。
+
+### 組合
+
+函式性程式將邏輯拆解成專注特定工作的一群純函式。最終你必須將這些小函式組合在一起，特別是你會需要組合它們、依序或平行呼叫它們，或組合成更大的函式直到最終成為一個應用程式。
+
+組合有多種方式、模式與技術，你可能熟悉的一種方式是鏈接。在 JavaScript 中，函式可使用點記號法鏈接以表示前一個函式的回傳值。
+
+字串有替代方法。替換方法回傳的字串也有替換方法。因此，我們可以用點記號鏈接替換方法來轉換字串。
+
+```javascript
+const template = "hh:mm:ss tt"
+const clockTime = template.replace("hh", "03")
+    .replace("mm", "33")
+    .replace("ss", "33")
+    .replace("tt", "PM");
+
+console.log(clockTime);
+```
+
+鏈接是一種組合技術，但還有其他技術。組合的目標是 “結合簡單函式產生高階函式”。
+
+```javascript
+const both = date => appedAMPM(civilianHours(date))
+```
+
+both
+函式是透過兩個不同的函式處理值的函式。此語法難以理解而不容易維護與擴充。若需要在 20
+個不同的函式間傳遞值會怎樣？
+
+一個更優雅的方式是將函式組合成高階函式。
+
+```javascript
+const both = compose(civilianHours, appendAMPM);
+
+both(new Date());
+```
+
+這種方式看起來更好。它容易擴充，因為我們可隨時加入更多的函式。這種方式同樣也容易改變組成函式的順序。
+
+compose 函式是高階函式。它以函式作為參數並回傳單一值。
+
+```javascript
+const compose = (...fns) =>
+  (arg) =>
+    fns.reduce(
+      (composed, f) => f(composed), 
+      arg
+)
+```
+
+這是以 compose
+函式展示組合技術的簡單範例。此函式在處理一個以上參數或非函式參數時會更複雜。另一種組合的實作方式使用
+reduceRight 來反序組合函式。
+
+### 結合在一起
+
+我們已經看過函式性程式設計的核心概念，讓我們結合這些概念建構一個 JavaScript 應用程式。
+
+由於 JavaScript 能讓你脫離函式性做法且無需依照規則，所以你必須專注。遵守以下三項規則可幫助你維持方向。
+
+1. 保持資料的不變性
+2. 保持函式純粹——至少要一個參數，回傳資料或另一個函式
+3. (盡量)使用遞迴而非迴圈
+
+我們目標是建構一個時鐘。時鐘必須顯示民用時、分、秒與上下午。每個欄位必須是雙位數、這表示
+1 或 2 等值前面必須補零。時鐘必須每秒更新。
+
+首先，讓我們看看命令式的解決方案。
