@@ -767,3 +767,157 @@ reduceRight 來反序組合函式。
 1 或 2 等值前面必須補零。時鐘必須每秒更新。
 
 首先，讓我們看看命令式的解決方案。
+
+```javascript
+setInterval(logClockTime, 1000);
+
+function logClockTime() {
+  
+  // 取得民用時間字串
+  var time = getClockTime();
+  
+  // 清除控制台並記錄時間
+  console.clear();
+  console.log(time);
+}
+
+function getClockTime() {
+  
+  // 取得目前時間
+  var date = new Date();
+  var time = "";
+  
+  // 序列化時間
+  var time = {
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+    seconds: date.getSeconds(),
+    ampm: "AM"
+  }
+  
+  // 轉換成民用時間
+  if (time.hours == 12) {
+    time.ampm = "PM"
+  } else if (time.hours > 12) {
+    time.ampm = "PM"
+    time.hours -= 12
+  }
+  
+  // 對時補零以製作雙位數
+  if (time.hours < 10) {
+    time.hours = "0" + time.hours
+  }
+  
+  // 對分補零以製作雙位數
+  if (time.minutes < 10) {
+    time.minutes = "0" + time.minutes
+  }
+  
+  // 對秒補零以製作雙位數
+  if (time.seconds < 10) {
+    time.seconds = "0" + time.seconds
+  }
+  
+  // 製作成 "hh:mm:ss tt" 格式字串
+  return time.hours + ":"
+      + time.minutes + ":"
+      + time.seconds + " "
+      + time.ampm;
+}
+```
+
+此方法相當直接。它可行且有註解幫助我們理解運作。但這些函式巨大且複雜，每個函式有許多任務。它們很難理解，需要註解且難以維護。讓我們看一下函式性方式如何產生更好擴充的應用程式。
+
+我們的目標是將應用程式的邏輯拆解成小函式。每個函式專注一項任務，然後將它們組合成用於建構時鐘的大函式。
+
+首先讓我們建構求值與管理控制台的函式。我們需要取得秒與目前時間的函式，還有兩個在控制台紀錄訊息與清除控制台的函式。在函式性程式中，應該盡可能使用函式而非值。我們會在有必要時呼叫函式來取得值。
+
+```javascript
+const oneSecond = () => 1000
+const getCurrentTime = () => new Date()
+const clear = () => console.clear()
+const log = message => console.log(message)
+```
+
+接下來我們需要一些函式轉換資料。這三個函式會用來轉換 Date 物件成為時鐘使用的物件：
+
+```javascript
+const serializeClockTime = date =>
+    ({
+        hours: date.getHours(),
+        minutes: date.getMinutes(),
+        seconds: date.getSeconds()
+    })
+
+const civilianHours = clockTime =>
+    ({
+        ...clockTime,
+        hours: (clockTime.hours > 12) ?
+            clockTime.hours - 12 :
+            clockTime.hours
+    })
+
+const appendAMPM = clockTime =>
+    ({
+        ...clockTime,
+        ampm: (clockTime.hours >= 12) ? "PM": "AM"
+    })
+```
+
+接下來我們需要幾個高階函式：
+
+```javascript
+const display = target => time => target(time)
+
+const formatClock = format =>
+    time =>
+        format.replace("hh", time.hours)
+              .replace("mm", time.minutes)
+              .replace("ss", time.seconds)
+              .replace("tt", time.ampm)
+              
+const prependZero = key => clockTime =>
+    ({
+        ...clockTime,
+        [key]: (clockTime[key] < 10) ?
+            "0" + clockTime[key] :
+            clockTime[key]
+    })
+```
+
+這些高階函式會被叫用以建構格式化時鐘時間的函式。
+
+再來我們必須組合它們，compose 函式：
+
+```javascript
+const convertToCivilianTime = clockTime =>
+    compose(
+      appendAMPM,
+      civilianHours
+    )(clockTime)
+
+const doubleDigits = civilianTime =>
+    compose(
+      prependZero("hours"),
+      prependZero("minutes"),
+      prependZero("seconds"),
+    )(civilianTime)
+    
+const startTicking = () =>
+    setInterval(
+      compose(
+        clear,
+        getCurrentTime,
+        serializeClockTime,
+        convertToCivilianTime,
+        doubleDigits,
+        formatClock("hh:mm:ss tt"),
+        display(log)
+      ),
+      oneSecond()
+    )
+
+startTicking()
+```
+
+這樣方式好處很多。首先是這些函式容易測試與重複使用
