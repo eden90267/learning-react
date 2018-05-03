@@ -227,3 +227,149 @@ React.createElement(
   items.map(ingredient => React.createElement('li', null, ingredient))
 );
 ```
+
+不過執行此程式碼，你會看到如下的錯誤：
+
+```
+Warning: Each child in an array or iterator should have a unique "key" prop. Check the top-level render call using <ul>. See https://fb.me/react-warning-keys for more information. in li
+```
+
+迭代陣列以建構子元素清單時，React 預期每個元素都有 key 屬性。React 依 key 屬性對
+DOM
+進行更新。第五章會討論鍵與需要它的原因，但現在你可以對每個清單項目元素加上獨特的
+key 屬性以排除警告訊息。我們可使用材料的陣列索引作為獨特值。
+
+```javascript
+React.createElement("ul", {className: "ingredients"},
+  items.map((ingredient, i) => React.createElement('li', {key: i}, ingredient))
+);
+```
+
+## React 元件
+
+使用者介面由組件組成。
+
+在 React 中，每個組件稱為**元件**。元件能讓資料集重複使用相同的 DOM 結構。
+
+思考要以 React 建構的使用者界面時，找尋可將元素拆解成可重複使用的片段的機會。
+
+讓我們看看建構元件的三種不同方式：createClass、ES6 類別與無狀態的函式性元件。
+
+### React.createClass
+
+React 於 2013 年發表時只有一種建構元件的方式：createClass 函式。
+
+已有新的方法建構元件，但 React 專案還是廣泛使用 createClass。然而 React
+團隊已經表示未來可能會停用 createClass。
+
+使用 React.createClass 建構回傳一個以陣列儲存材料的清單項目之無排序清單元素的
+React 元件。
+
+```javascript
+const IngredientsList = React.createClass({
+  displayName: "IngredientsList",
+  render() {
+    return React.createElement("ul", {"className": "ingredients"},
+      React.createElement('li', null, "1 lb Salmon"),
+      React.createElement('li', null, "1 cup Pine Nuts"),
+      React.createElement('li', null, "2 cups Butter Lettuce"),
+      React.createElement('li', null, "1 Yellow Squash"),
+      React.createElement('li', null, "1/2 cup Olive Oil"),
+      React.createElement('li', null, "3 cloves of Garlic"),
+    )
+  }
+});
+
+const list = React.createElement(IngredientsList, null, null)
+
+ReactDOM.render(
+  list,
+  document.getElementById('react-container')
+)
+```
+
+元件讓我們可以用資料建構可重複使用的 UI。在 render 函式中，我們可使用 this
+關鍵字指向元件實例，而實例的屬性可透過 this.props 存取。
+
+下面我們建構一個使用此元件的元素並命名為 IngredientsList：
+
+```javascript
+<IngredientsList>
+  <ul className="ingredients">
+    <li>1 lb Salmon</li>
+    <li>1 cup Pine Nuts</li>
+    <li>2 cups Butter Lettuce</li>
+    <li>1 Yellow Squash</li>
+    <li>1/2 cup Olive Oil</li>
+    <li>3 cloves of Garlic</li>
+  </ul>
+</IngredientsList>
+```
+
+資料可作為屬性傳給 React 元件。我們能以陣列傳遞資料給清單來建構可重複使用的材料清單：
+
+```javascript
+const IngredientsList = React.createClass({
+  displayName: "IngredientsList",
+  render() {
+    return React.createElement("ul", {"className": "ingredients"},
+      this.props.items.map((ingredient, i) =>
+        React.createElement("li", {key: i}, ingredient)
+      )
+    )
+  }
+})
+
+var items = [
+  "1 lb Salmon",
+  "1 cup Pine Nuts",
+  "2 cups Butter Lettuce",
+  "1 Yellow Squash",
+  "1/2 cup Olive Oil",
+  "3 cloves of Garlic"
+]
+
+const list = React.createElement(IngredientsList, {items}, null)
+
+ReactDOM.render(
+  list,
+  document.getElementById('react-container')
+)
+```
+
+現在再檢視 ReactDOM。items 這個資料屬性是具有六項材料的陣列。由於我們使用迴圈製作
+li 標籤，可加上迴圈的索引值作為鍵：
+
+```javascript
+<IngredientsList items=[...]>
+  <ul className="ingredients">
+    <li key="0">1 lb Salmon</li>
+    <li key="1">1 cup Pine Nuts</li>
+    <li key="2">2 cups Butter Lettuce</li>
+    <li key="3">1 Yellow Squash</li>
+    <li key="4">1/2 cup Olive Oil</li>
+    <li key="5">3 cloves of Garlic</li>
+  </ul>
+</IngredientsList>
+```
+
+元件是物件，它們可如同類別用於封裝程式碼。我們可建構繪製單一清單項目的方法並用它建構清單。
+
+以下範例加上自訂方法：
+
+```javascript
+const IngredientsList = React.createClass({
+  displayName: "IngredientsList",
+  renderListItem(ingredient, i) {
+    return React.createElement("li", {key: i}, ingredient)
+  },
+  render() {
+    return React.createElement("ul", {className: "ingredients"},
+      this.props.items.map(this.renderListItem)
+    );
+  }
+})
+```
+
+這也是 MVC 語言中 view 的概念。與 IngredientsList 的 UI 有關的所有東西都封裝在元件中；我們需要的東西都在這裡。
+

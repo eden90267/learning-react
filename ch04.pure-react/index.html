@@ -10,7 +10,7 @@
 <body>
 
 <!-- Target container -->
-<div class="react-container"></div>
+<div id="react-container"></div>
 
 <!-- React library & ReactDOM -->
 <script src="https://unpkg.com/react@15.6.2/dist/react.js"></script>
@@ -19,6 +19,32 @@
 
   // 純 React 與 JavaScript 程式碼
 
+  const IngredientsList = React.createClass({
+    displayName: "IngredientsList",
+    render() {
+      return React.createElement("ul", {"className": "ingredients"},
+        this.props.items.map((ingredient, i) =>
+          React.createElement("li", {key: i}, ingredient)
+        )
+      )
+    }
+  })
+
+  var items = [
+    "1 lb Salmon",
+    "1 cup Pine Nuts",
+    "2 cups Butter Lettuce",
+    "1 Yellow Squash",
+    "1/2 cup Olive Oil",
+    "3 cloves of Garlic"
+  ]
+
+  const list = React.createElement(IngredientsList, {items}, null)
+
+  ReactDOM.render(
+    list,
+    document.getElementById('react-container')
+  )
 </script>
 </body>
 </html>
