@@ -193,7 +193,7 @@ props.children 陣列：
 }
 ```
 
-可看到每個清單項目都是個子元素。
+可看到每個清單項目都是各子元素。
 
 
 > Top! React 的 className  
