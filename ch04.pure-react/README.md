@@ -204,3 +204,26 @@ props.children 陣列：
 元素從單一根長出的樹。
 
 **React 元素是 React 用於在瀏覽器中建構 UI 的指令**。
+
+## 以資料建構元素
+
+使用 React 的主要好處是能夠分離 UI 元素與資料。由於 React 只是
+JavaScript，我們可加上 JavaScript 邏輯來幫助我們建構 React
+元件樹。舉例來說，材料可以儲存在陣列中，而我們可以對應該陣列與 React 元素。
+
+```javascript
+var items = [
+  "1 lb Salmon",
+  "1 cup Pine Nuts",
+  "2 cups Butter Lettuce",
+  "1 Yellow Squash",
+  "1/2 cup Olive Oil",
+  "3 cloves of Garlic"
+]
+
+React.createElement(
+  "ul",
+  {className: 'ingredients'},
+  items.map(ingredient => React.createElement('li', null, ingredient))
+);
+```
