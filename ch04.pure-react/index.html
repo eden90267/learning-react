@@ -19,16 +19,12 @@
 
   // 純 React 與 JavaScript 程式碼
 
-  const IngredientsList = React.createClass({
-    displayName: "IngredientsList",
-    render() {
-      return React.createElement("ul", {"className": "ingredients"},
-        this.props.items.map((ingredient, i) =>
-          React.createElement("li", {key: i}, ingredient)
-        )
+  const IngredientsList = ({items}) =>
+    React.createElement("ul", {"className": "ingredients"},
+      items.map((ingredient, i) =>
+        React.createElement("li", {key: i}, ingredient)
       )
-    }
-  })
+    )
 
   var items = [
     "1 lb Salmon",

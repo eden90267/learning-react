@@ -373,3 +373,100 @@ const IngredientsList = React.createClass({
 
 這也是 MVC 語言中 view 的概念。與 IngredientsList 的 UI 有關的所有東西都封裝在元件中；我們需要的東西都在這裡。
 
+現在我們可使用我們的元件建構 React
+元素並將它作為屬性傳給元素清單。請注意現在元素的型別是字串——它正是元件的類別
+
+> Top! 元件類別型別  
+> 繪製 HTML or SVG
+> 元素時，我們使用的是字串。以元件建構元素時，我們直接使用元件類別。這是
+> IngredientsList 沒有用引號包圍的原因；我們將類別傳給 createElement
+> 是因為它是個元件。React 會以此類別建構元件的實例並進行管理。
+
+使用具有這種資料的 IngredientsList 元件會在 DOM 產生下列無排序清單：
+
+```html
+<ul data-reactroot className="ingredients">
+  <li key="0">1 lb Salmon</li>
+  <li key="1">1 cup Pine Nuts</li>
+  <li key="2">2 cups Butter Lettuce</li>
+  <li key="3">1 Yellow Squash</li>
+  <li key="4">1/2 cup Olive Oil</li>
+  <li key="5">3 cloves of Garlic</li>
+</ul>
+```
+
+### React.Component
+
+ES6 規格中的一個重要功能是 React.Component，它是用於建構新的 React
+元件的抽象類別。我們可從階層中以 ES6 語法擴充這個類別來建構自訂元件。
+
+```javascript
+class IngredientsList extends React.Component {
+  renderListItem(ingredient, i) {
+    return React.createElement("li", {key: i}, ingredient)
+  }
+  render() {
+    return React.createElement("ul", {className: "ingredients"},
+      this.props.items.map(this.renderListItem)
+    );
+  }
+}
+```
+
+### 無狀態函式性元件
+
+無狀態函式性元件是函式而非物件；因此它們沒有 this
+範圍。由於它們是簡單的純函式，我們會在應用程式中盡可能使用它們。有時候無狀態函式性元件不夠好以至於我們必須回頭使用
+class or createClass，但一般來說能用就好。
+
+無狀態函式性元件是取用屬性並回傳一個 DOM
+元素的函式。無狀態函式性元件是實踐函式性程式設計的好方法。你應該盡量將無狀態函式性元件寫成純函式。它們取用屬性並回傳
+DOM 元素而不會導致副作用。如此可以簡化程式且非常容易測試。
+
+無狀態函式性元件能保持應用程式架構的簡潔，而 React
+團隊承諾使用它們會有些效能增益。但若要封裝功能或 this 就不能使用它們。
+
+```javascript
+const IngredientsList = props =>
+  React.createElement("ul", {"className": "ingredients"},
+    props.items.map((ingredient, i) =>
+      React.createElement("li", {key: i}, ingredient)
+    )
+  )
+```
+
+我們會以 ReactDOM.render 繪製這個元件，與使用 createClass or ES6 類別語法建構出的元件之繪製方式完全相同。它只是個函式，此函式透過參數接收資料並回傳資料項目組成的無排序清單。
+
+改善這個無狀態函式性元件的一個方式是解構屬性參數：
+
+```javascript
+const IngredientsList = ({items}) =>
+  React.createElement("ul", {"className": "ingredients"},
+    items.map((ingredient, i) =>
+      React.createElement("li", {key: i}, ingredient)
+    )
+  )
+```
+
+除了較清楚的語法外，Facebook 曾經暗示未來無狀態函式性元件可能會比 createClass or
+ES6 class 語法更快。
+
+## 繪製 DOM
+
+由於我們能夠以屬性傳入資料給元件，因此可以分離應用程式建構 UI
+的資料與邏輯。如此能讓我們比文件物件模型更容易操作獨立的資料集，改變此獨立資料集的任何值也改變了應用程式的狀態。
+
+想像應用程式的所有資料儲存在單一 JavaScript
+物件中，每次改變此物件時可將其作為屬性傳給元件並重新繪製 UI。這表示
+ReactDOM.render 會要執行很多工作。
+
+為了讓 React 在合理的時間內運作，ReactDOM.render
+必須有聰明的作法，而它確實有。相較於清空再重建整個 DOM，ReactDOM.render
+保持目前的 DOM 且只套用最少量有必要的改變。
+
+ReactDOM.render 保持現有 DOM 只更新必須更新的 DOM 元素，盡可能非插入新 DOM
+方式，若非得需要插入 DOM 元素也會嘗試減少 DOM 插入 (成本最高的操作)。
+
+這種聰明的 DOM 繪製對 React
+在合理時間內運作是必要的，因為應用程式的狀態經常改變。每次改變狀態時，我們需要
+ReactDOM.render 有效率的繪製 UI。
