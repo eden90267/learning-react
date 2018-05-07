@@ -470,3 +470,101 @@ ReactDOM.render 保持現有 DOM 只更新必須更新的 DOM 元素，盡可能
 這種聰明的 DOM 繪製對 React
 在合理時間內運作是必要的，因為應用程式的狀態經常改變。每次改變狀態時，我們需要
 ReactDOM.render 有效率的繪製 UI。
+
+## factory
+
+目前為止我們建構元素的唯一方式是使用 React.createElement。另一個建構 React
+元素的方式是使用 factory。factory 是將物件初始化的細節抽象畫的特殊物件。在 React
+中，我們使用 factory 來幫助我們建構 React 元素的實例。
+
+React 具有內建的 factory 以支援各種 HTML 與 SVG 的 DOM 元素，你可使用
+React.createFactory 函式建構自訂元件的 factory。
+
+以這一章 h1 元素為例：
+
+```html
+<h1>Baked Salmon</h1>
+```
+
+相較使用 createElement，我們可用內建的 factory 建構 React 元素：
+
+```javascript
+React.DOM.h1(null, "Baked Salmon");
+```
+
+- 第一個參數：屬性
+- 第二個參數：子元素
+
+```javascript
+React.DOM.ul({"className": "ingredients"},
+  React.DOM.li(null, "1 lb Salmon"),
+  React.DOM.li(null, "1 cup Pine Nuts"),
+  React.DOM.li(null, "2 cups Butter Lettuce"),
+  React.DOM.li(null, "1 Yellow Squash"),
+  React.DOM.li(null, "1/2 cup Olive Oil"),
+  React.DOM.li(null, "3 cloves of Garlic"),
+)
+```
+
+我們還可分離材料資料並使用 factory 來改善前面的定義：
+
+```javascript
+var items = [
+  "1 lb Salmon",
+  "1 cup Pine Nuts",
+  "2 cups Butter Lettuce",
+  "1 Yellow Squash",
+  "1/2 cup Olive Oil",
+  "3 cloves of Garlic"
+]
+
+var list = React.DOM.ul(
+  {className: "ingredients"},
+  items.map((ingredient, key) =>
+    React.DOM.li({key}, ingredient)
+  )
+)
+
+ReactDOM.render(list, document.getElementById('react-container'))
+```
+
+### 對元件使用 factory
+
+若想要以作為函式呼叫的元件來簡化程式碼，你必須明確地建構一個 factory：
+
+```javascript
+const {render} = ReactDOM;
+
+const IngredientsList = ({list}) =>
+  React.createElement('ul', null,
+    list.map((ingredient, i) =>
+      React.createElement('li', {key: i}, ingredient)
+    )
+  );
+
+const Ingredients = React.createFactory(IngredientsList);
+
+const list = [
+  "1 lb Salmon",
+  "1 cup Pine Nuts",
+  "2 cups Butter Lettuce",
+  "1 Yellow Squash",
+  "1/2 cup Olive Oil",
+  "3 cloves of Garlic"
+]
+
+render(
+  Ingredients({list}),
+  document.getElementById('react-container')
+)
+```
+
+我們以 Ingredients 這個 factory 快速的繪製出一個 React 元素。Ingredients
+是如同 DOM 的 factory 取用屬性與子元素參數的函式。
+
+若沒有使用 JSX，你會發現使用 factory 較多個 React.createElement
+呼叫更好，但定義 React 元素最簡單與常見的方式是使用 JSX 標籤。若在 React 中使用
+JSX，你可能不會用到 factory。
+
+這一章使用 createElement 與 createFactory 來建構 React
+元件。第五章會討論如何以 JSX 簡化元件的建構。
