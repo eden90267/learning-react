@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>React example</title>
+  <style>
+    body,
+    html,
+    #react-container {
+      height: 100%;
+    }
+
+    body,
+    h1, h2, h3, h4, h5,
+    p, td, span, div {
+      padding: 0;
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    #react-container {
+      padding: 1em;
+      background-color: #EEE;
+    }
+
+    article>header {
+      font-family: Verdana, sans-serif;
+      font-size: 1.2em;
+      color: darkslateblue;
+      border-bottom: solid 2px goldenrod;
+      margin-bottom: 1em;
+    }
+
+    div.recipes>section {
+      border: double 4px saddlebrown;
+      padding: 1em;
+      background-color: white;
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+<body>
+<div id="react-container"></div>
+
+<script src="https://unpkg.com/react@15.6.2/dist/react.js"></script>
+<script src="https://unpkg.com/react-dom@15.6.2/dist/react-dom.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.38/browser.js"></script>
+<script type="text/babel">
+  // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
+
+  var data = [
+    {
+      "name": "Baked Salmon",
+      "ingredients": [
+        {"name": "Salmon", "amount": 1, "measurement": "lb"},
+        {"name": "Pine Nuts", "amount": 1, "measurement": "cup"},
+        {"name": "Butter Lettuce", "amount": 2, "measurement": "cups"},
+        {"name": "Yellow Squash", "amount": 1, "measurement": "med"},
+        {"name": "Olive Oil", "amount": 0.5, "measurement": "cup"},
+        {"name": "Garlic", "amount": 3, "measurement": "cloves"}
+      ],
+      "steps": [
+        "Preheat the oven to 350 degrees.",
+        "Spread the olive oil around a glass baking dish.",
+        "Add the salmon, garlic, and pine nuts to the dish.",
+        "Bake for 15 minutes.",
+        "Add the yellow squash and put back in the oven for 30 mins.",
+        "Remove from oven and let cool for 15 minutes. Add the lettuce and serve."
+      ]
+    },
+    {
+      "name": "Fish Tacos",
+      "ingredients": [
+        {"name": "Whitefish", "amount": 1, "measurement": "lb"},
+        {"name": "Cheese", "amount": 1, "measurement": "cup"},
+        {"name": "Iceberg Lettuce", "amount": 2, "measurement": "cups"},
+        {"name": "Tomatoes", "amount": 2, "measurement": "large"},
+        {"name": "Tortillas", "amount": 3, "measurement": "med"}
+      ],
+      "steps": [
+        "Cook the fish on the grill until hot.",
+        "Place the fish on the 3 tortillas.",
+        "Top them with lettuce, tomatoes, and cheese."
+      ]
+    }
+  ];
+
+  // 個別食譜的無狀態函式性元件
+  const Recipe = ({name, ingredients, steps}) => (
+    <section id={name.toLowerCase().replace(/ /g, '-')}>
+      <h1>{name}</h1>
+      <ul className="ingredients">
+        {ingredients.map((ingredient, i) =>
+          <li key={i}>{ingredient.name}</li>
+        )}
+      </ul>
+      <section className="instructions">
+        <h2>Cooking Instructions</h2>
+        {steps.map((step, i) =>
+          <p key={i}>{step}</p>
+        )}
+      </section>
+    </section>
+  );
+
+  // 食譜選單的無狀態函式性元件
+  const Menu = ({title, recipes}) => (
+    <article>
+      <header>
+        <h1>{title}</h1>
+      </header>
+      <div className="recipes">
+        {recipes.map((recipe, i) =>
+          <Recipe key={i} {...recipe}/>
+        )}
+      </div>
+    </article>
+  );
+
+  ReactDOM.render(
+    <Menu recipes={data} title="Delicious Recipes"/>,
+    document.getElementById('react-container')
+  );
+
+</script>
+</body>
+</html>
