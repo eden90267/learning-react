@@ -327,3 +327,489 @@ css-loader 可用於引用包裝檔案中的 CSS 模組。所有的 CSS 被包�
 
 ### 使用 webpack 建構的食譜應用程式
 
+以 webpack 等工具靜態的建構你的用戶端
+JavaScript，可讓團隊合作建構大型網頁應用程式。使用 webpack 模組包裝工具還有下列的好處：
+
+- **模組化**
+
+  使用 CommonJS 模組模式以匯出之後會匯入或被應用程式其他部分引用的模組可讓程式碼更容易存取，它能讓開發團隊更容易建構與運用不同的上線前靜態組合檔案。
+
+- **組合**
+
+  我們可使用模組建構可有效組成應用程式的小型、簡單、可重複使用的 React 元件。較小的元件更容易理解、測試與重複使用，也更容易在**改善應用程式時替換**。
+
+- **速度**
+
+  將應用程式的模組與相依檔案包裝到單一用戶端整合包可減少應用程式的載入時間，因為每個
+  HTTP 請求都會產生延遲。將所有東西包裝到單一檔案意味著用戶端只需要發出單一請求。縮小包裝中的程式碼也能改善載入時間。
+
+- **一致性**
+
+  由於 webpack 會將 JSX 轉譯成 React 與 ES6 或 ES7 成通用
+  JavaScript，我們現在就可以使用未來的 JavaScript 語法。Babel 支援多種 ESNext
+  語法，這表示我們無須擔心瀏覽器是否支援我們的程式碼。它能讓開發者持續的使用最新的
+  JavaScript 語法。
+
+### 將元件拆成模組
+
+目前的食譜元件：
+
+```javascript
+const Recipe = ({name, ingredients, steps}) => (
+  <section id={name.toLowerCase().replace(/ /g, '-')}>
+    <h1>{name}</h1>
+    <ul className="ingredients">
+      {ingredients.map((ingredient, i) =>
+        <li key={i}>{ingredient.name}</li>
+      )}
+    </ul>
+    <section className="instructions">
+      <h2>Cooking Instructions</h2>
+      {steps.map((step, i) =>
+        <p key={i}>{step}</p>
+      )}
+    </section>
+  </section>
+);
+```
+
+此元件執行相當多的工作：
+
+- 顯示食譜名稱
+- 建構材料的無排序清單
+- 獨立段落元素顯示每一個步驟
+
+更函式性方式的 Recipe
+元件會將它拆解成較小且功能更專注的函式性元件，然後再進行組合。我們可先抽出步驟成獨立的無狀態函式性元件開始，並建構可用於任何一組步驟的獨立檔案中的模組：
+
+```javascript
+const Instructions = ({title, steps}) =>
+  <section className="instructions">
+    <h2>{title}</h2>
+    {steps.map((s, i) =>
+      <p key={i}>{s}</p>
+    )}
+  </section>;
+
+export default Instructions;
+```
+
+我們會傳入步驟的名稱與步驟給 Instructions 的新元件。
+
+接下來考慮材料。在 Recipe
+元件，我們只顯示材料的名稱，但資料中的材料還有分量與單位。我們可建構一個無狀態函式性元件來表示單一材料：
+
+```javascript
+const Ingredient = ({amount, measurement, name}) =>
+  <li>
+    <span className="amount">{amount}</span>
+    <span className="measurement">{measurement}</span>
+    <span className="name">{name}</span>
+  </li>;
+
+export default Ingredient;
+```
+
+再來使用 Ingredient 元件建構顯示材料清單的 IngredientsList 元件：
+
+```javascript
+import Ingredient from "./Ingredient";
+
+const IngredientsList = ({list}) =>
+  <ul className="ingredients">
+    {list.map((ingredient, i) => <Ingredient key={i} {...ingredient}/>)}
+  </ul>;
+
+export default IngredientsList;
+```
+
+有了材料與步驟元件，我們可透過這些元件組成食譜：
+
+```javascript
+import IngredientsList from "./IngredientsList";
+import Instructions from "./Instructions";
+
+const Recipe = ({name, ingredients, steps}) =>
+  <section id={name.toLowerCase().replace(/ /g, '-')}>
+    <h1>{name}</h1>
+    <IngredientsList list={ingredients} />
+    <Instructions title="Cooking Instructions"
+                  steps={steps} />
+  </section>;
+
+export default Recipe;
+```
+
+我們以組合較小的元件更宣告式的表示我們的食譜。不只是程式碼比較漂亮與簡單，也更容易閱讀。它表示食譜應該顯示食譜名稱、材料清單與烹飪。我們將材料與步驟的顯示抽出放在較小、較簡單的元件中。
+
+在 CommonJS 的模組化方式中，Menu 元件看起來很相似。關鍵差別在於它儲存在獨立的檔案中、匯入所用到的模組，以及匯出它自己：
+
+```javascript
+import Recipe from "./Recipe";
+
+const Menu = ({recipes}) =>
+  <article>
+    <header>
+      <h1>Delicious Recipes</h1>
+    </header>
+    <div className="recipes">
+      {recipes.map((recipe, i) =>
+        <Recipe key={i} {...recipe} />)
+      }
+    </div>
+  </article>;
+
+export default Menu;
+```
+
+我們還是需要 ReactDOM.render 繪製 Menu 元件。我們需要 index.js 檔案：
+
+```javascript
+import React from 'react'
+import {render} from 'react-dom'
+import Menu from "./components/Menu";
+import data from '../data/recipes'
+
+window.React = React;
+
+render(
+  <Menu recipes={data}/>,
+  document.getElementById('react-container')
+);
+```
+
+將 window.React 設定成 React 使 React 函式庫在瀏覽器中全域顯露。這種方式可確保
+React.createElement 的呼叫可用。
+
+現在我們已將程式碼抽出到獨立的模組與檔案中，讓我們建構以 webpack
+建構靜態的建構程序來將所有東西放回單一檔案中。
+
+### 安裝 webpack 相依檔案
+
+全域安裝 webpack 以便在各處使用 webpack 命令：
+
+```shell
+npm i -g webpack@3.11.0
+```
+
+再來安裝一些 loader 與 preset 來達成轉譯：
+
+```shell
+npm i babel-core babel-loader babel-preset-env babel-preset-react babel-preset-stage-0 -D
+```
+
+我們需要區域性的安裝 React 與 ReactDOM 的相依檔案：
+
+```shell
+npm i react@15.6.2 react-dom@15.6.2 --save
+```
+
+現在我們已經安裝好 webpack 的靜態建構程序所需的所有東西。
+
+### 設定 webpack
+
+我們必須告訴 webpack 如何將原始碼包裝到單一檔案中。我們可使用 webpack
+預設的組態檔案：webpack.config.js
+
+我們的啟動檔案是 index.js，它會匯入 React、ReactDOM 與 Menu.js 檔案，webpack
+會依 import 陳述，順著匯入樹引入必要的模組到整合檔案中。
+
+> Top! ES6 的 import 陳述  
+> ES6 的 import 陳述目前並未被大部分瀏覽器或 Node.js 支援。ES6 的 import
+> 能運作的原因是 Babel 會將它們轉換成 `require('module/path');`
+> 的陳述。CommonJS 的模組通常以 require 函式載入。
+
+我們建構程序有三個步驟：
+
+1. JSX 轉 React 元素
+2. 以 ES5 替換 ES6
+3. 匯出單一檔案
+
+webpack.config.js 檔案只是另一個匯出 JavaScript 實字物件以描述 webpack 應該採取的動作之模組。
+
+```javascript
+// webpack.config.js
+const path = require('path');
+
+module.exports = {
+  entry: "./src/index.js",
+  output: {
+    path: path.resolve(__dirname, 'dist', 'assets'),
+    filename: "bundle.js"
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /(node_modules)/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['env', 'stage-0', 'react']
+          }
+        },
+      }
+    ]
+  }
+};;
+```
+
+首先，我們告訴 webpack 用戶端的進入點是 `./src/index.js`。它會自動根據檔案開始處的
+import 陳述建構相依檔案樹。
+
+指定輸出整合 JavaScript 檔案到 `./dist/asserts/bundle.js`。
+
+下一組 webpack 指令由特定模組中的 loader 清單組成。rules
+欄位為陣列是因為有很多種 loader 可用於 webpack。此例中，我們只使用了 babel。
+
+每個 loader 都是 JavaScript 物件。test 欄位是尋找 loader
+應該操作的模組之檔案路徑的正規表示式。此例中，我們對 node_modules
+目錄外的所有匯入 JavaScript 檔案執行 babel-loader。babel-loader 會使用 ES6
+與 React 的 preset 以將 ES6 或 JSX 語法轉譯成瀏覽器均可執行的 JavaScript。
+
+webpack 靜態的執行。整合包通常在部署到伺服器前建構。
+
+```shell
+$ webpack
+```
+
+webpack 會成功建構整合包或顯示錯誤，大部分錯誤都與匯入參考有關。對 webpack
+除錯時要仔細檢查 import 陳述式中的檔案名稱與路徑。
+
+### 載入整合包
+
+將整合包匯出到 dist 目錄。此目錄包含你想要在網頁伺服器上執行的檔案。dist
+目錄是儲存 index.html 檔案的地方：
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>React Recipes App</title>
+</head>
+<body>
+<div id="react-container"></div>
+<script src="assets/bundle.js"></script>
+</body>
+</html>
+```
+
+這是你應用程式的首頁。它會以一個 HTTP 請求從 bundle.js
+檔案載入所需的所有東西。你必須部署這些檔案到網頁伺服器上或以 Node.js、Ruby on
+Rails 等建構提供這些檔案的網頁伺服器應用程式。
+
+### 原始碼對應 (sourcemap)
+
+將原始碼包裝在單一檔案中會導致應用程式於瀏覽器中除錯的問題，我們可提供 sourcemap
+來消除這個問題。sourcemap 是個對應整合包與原始碼檔案的一個檔案。使用 webpack
+時，我們只需在 webpack.config.js 加上幾行：
+
+```javascript
+const path = require('path');
+
+module.exports = {
+  entry: "./src/index.js",
+  output: {
+    path: path.resolve(__dirname, 'dist', 'assets'),
+    filename: "bundle.js",
+    sourceMapFilename: 'bundle.map'
+  },
+  devtool: '#source-map',
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /(node_modules)/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['env', 'stage-0', 'react']
+          }
+        },
+      }
+    ]
+  }
+};
+```
+
+將 devtool 屬性設定為 '#source-map' 會告訴 webpack
+你想要使用原始碼對應。sourceMapFilename
+是必要的。將原始碼對應檔案依目標檔案命名是個好主意，webpack
+會在匯出時對應整合檔案與原始碼。
+
+打開 browser devtools 工具，在 sources 分頁中看到
+`webpack://目錄`，此目錄下可找到整合包中的所有原始檔。
+
+你可使用瀏覽器的除錯工具對這些檔案逐步執行。
+
+- 任何行號插入中斷點
+- Scope 分頁檢查變數
+- Watch 分頁將變數加入觀察
+
+### 整合包最佳化
+
+縮小檔案，包括刪除空白、縮小變數名稱為一個字元與刪除直譯器不會碰到的行。
+
+webpack 有內建的外掛可醜化整合包
+
+```shell
+npm i webpack -D
+```
+
+```javascript
+// webpack.config.js
+const webpack = require('webpack');
+const path = require('path');
+
+module.exports = {
+  entry: "./src/index.js",
+  output: {
+    path: path.resolve(__dirname, 'dist', 'assets'),
+    filename: "bundle.js",
+    sourceMapFilename: 'bundle.map'
+  },
+  devtool: '#source-map',
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /(node_modules)/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['env', 'stage-0', 'react']
+          }
+        },
+      }
+    ]
+  },
+  plugins: [
+    new webpack.optimize.UglifyJsPlugin({
+      sourceMap: true,
+      warnings: false,
+      mangle: true
+    })
+  ]
+};
+```
+
+- sourceMap 設為 true 來對應原始碼
+- warning 設為 true 會消除匯出時的控制台警告
+- mangle 表示要將 recipes 或 ingredients 等長變數名稱改為單一字母
+
+### 整合 CSS
+
+CSS 可使用 import 陳述加入整合包。這些陳述告訴 webpack 將 CSS 與 JavaScript
+模組包在一起：
+
+```javascript
+import Recipe from "./Recipe";
+import '../../stylesheets/Menu.css';
+
+const Menu = ({recipes}) =>
+  <article>
+    <header>
+      <h1>Delicious Recipes</h1>
+    </header>
+    <div className="recipes">
+      {recipes.map((recipe, i) =>
+        <Recipe key={i} {...recipe} />)
+      }
+    </div>
+  </article>;
+
+export default Menu;
+```
+
+要在 webpack 設定中引入 CSS，必須安裝一些 loader：
+
+```shell
+npm i style-loader css-loader postcss-loader -D
+```
+
+```javascript
+// webpack.config.js
+const webpack = require('webpack');
+const path = require('path');
+
+module.exports = {
+  entry: "./src/index.js",
+  output: {
+    path: path.resolve(__dirname, 'dist', 'assets'),
+    filename: "bundle.js",
+    sourceMapFilename: 'bundle.map'
+  },
+  devtool: '#source-map',
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /(node_modules)/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['env', 'stage-0', 'react']
+          }
+        },
+      },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader', {
+          loader: 'postcss-loader',
+          options: {
+            plugins: () => [require('autoprefixer')]
+          }
+        }]
+      }
+    ]
+  },
+  plugins: [
+    new webpack.optimize.UglifyJsPlugin({
+      sourceMap: true,
+      warnings: false,
+      mangle: true
+    })
+  ]
+};
+```
+
+### create-react-app
+
+如 Facebook 團隊在他們的部落格所述：“React 的生態系與工具的大爆發有關”。React
+團隊發布 create-react-app 命令列工具以自動產生 React 專案。
+
+create-react-app 受 Ember CLI 專案的啟發，能讓開發者快速啟動 React
+專案而無須手動設定 webpack、Babel、ESLint 與相關工具。
+
+```shell
+npm i -g create-react-app
+```
+
+```shell
+create-react-app my-react-project
+```
+
+如此會在該目錄建構有三個依賴工具的 React 專案：React、ReactDOM 與
+react-scripts。實際執行工作的 react-scripts 也是 Facebook 開發的。它會安裝
+Babel、ESLint、webpack 與其他工具，因此你無需手動設定它們。在它產生的目錄中有個
+src 目錄待有一個 App.js 檔案，你可以修改根元件並匯入其他元件檔案。
+
+```shell
+npm start
+```
+
+```shell
+npm test
+```
+
+這樣會在埠 3000 執行你的應用程式。
+
+你也可執行 npm run build 命令或 yarn
+build。如此會建構可上線的轉譯與縮小過的整合包。
+
+create-react-app 是很好的 React
+新手與老手工具。隨著工具演進，還會加入更多功能，因此要注意 Github 上的動態。
