@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>React example</title>
+  <style>
+  </style>
+</head>
+<body>
+<div id="react-container"></div>
+
+<script src="https://unpkg.com/react@15.6.2/dist/react.js"></script>
+<script src="https://unpkg.com/react-dom@15.6.2/dist/react-dom.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.38/browser.js"></script>
+<script type="text/babel">
+  // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
+
+  const {Component, PropTypes} = React;
+  const {render} = ReactDOM;
+
+  class AddColorForm extends Component {
+    constructor(props) {
+      super(props);
+      this.submit = this.submit.bind(this);
+    }
+
+    submit(e) {
+      e.preventDefault();
+      const {_title, _color} = this.refs;
+      this.props.onNewColor(_title.value, _color.value);
+      _title.value = '';
+      _color.value = '#000000';
+      _title.focus();
+    }
+
+    render() {
+      return (
+        <form onSubmit={this.submit}>
+          <input ref="_title"
+                 type="text"
+                 placeholder="color title..." required/>
+          <input ref="_color"
+                 type="color" required/>
+          <button>ADD</button>
+        </form>
+      )
+    }
+  }
+
+  AddColorForm.propTypes = {
+    onNewColor: PropTypes.func,
+  };
+
+  AddColorForm.defaultProps = {
+    onNewColor: f => f
+  };
+
+  render(
+    <AddColorForm onNewColor={(title, color) => {
+      console.log(`TODO: add new ${title} and ${color} to the list`);
+      console.log(`TODO: render UI with new Color`);
+    }}/>,
+    document.getElementById('react-container')
+  );
+
+</script>
+</body>
+</html>
