@@ -584,3 +584,59 @@ AddColorForm.defaultProps = {
 叫用而不會導致錯誤。
 
 ### 無狀態函式性元件的 ref
+
+ref 也可用在無狀態函式性元件。這些元件沒有 this，因此不能使用
+this.refs。相較於使用字串屬性，我們會以函式設定 ref。此函式會以參數傳入輸入實例，我們可捕捉該實例並儲存在區域變數中。
+
+```javascript
+const AddColorForm = ({onNewColor = f => f}) => {
+  let _title, _color;
+  const submit = e => {
+    e.preventDefault();
+    onNewColor(_title.value, _color.value);
+    _title.value = '';
+    _color.value = '#000000';
+    _title.focus();
+  };
+  return (
+    <form onSubmit={submit}>
+      <input ref={input => _title = input}
+             type="text"
+             placeholder="color title..." required/>
+      <input ref={input => _color = input}
+             type="color" required/>
+      <button>ADD</button>
+    </form>
+  );
+};
+```
+
+在此無狀態函式性元件中，ref 以 callback 函式而非字串設定。此 callback
+函式以參數傳遞元素的實例。此實例可捕捉並儲存在 _title 或 _color 等區域變數中。將
+ref 儲存在區域變數後，提交表單時可輕鬆的存取它們。
+
+## React 的狀態管理
+
+目前我們只使用屬性來處理 React
+元件中的資料。屬性是不可變的，繪製後元件的屬性不會改變。為改變
+UI，我們需要其他機制以新屬性重新繪製元件樹。React
+的狀態是內建的元件內資料異動管理選項。應用程式的狀態改變時，UI 會重新繪製以反映這些變動。
+
+使用者與應用程式互動，它們瀏覽、搜尋、過濾、選取、新增、修改與刪除。使用者與應用程式互動時，應用程式狀態改變，而這些改變會在
+UI 中反映給使用者。畫面與選單出現又消失、內容變化、指示器開啟又關閉，在 React
+中，UI 反映應用程式的狀態。
+
+狀態可用單一 JavaScript 物件在 React
+元件中表示。元件的狀態改變時，元件繪製反應改變新
+UI。還有什麼比它更函式性？輸入一些資料，React 元件會將資料以 UI
+顯示。做出一些改變，React 會盡可能有效率的更新 UI 以反映變化。
+
+讓我們看看如何在 React 元件中運用狀態。
+
+### 元件的狀態
+
+狀態代表我們預期會在元件中改變的資料。我們以 StartRating 元件做示範。
+
+StarRating 元件需要兩個重要資料：要顯示的星號數量與星號數量代表的評分。
+
+我們需要可點擊、具有 selected 屬性的 Star 元件。每個星號可用一個無狀態函式性元件表示：
