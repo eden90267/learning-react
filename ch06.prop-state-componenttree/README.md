@@ -623,8 +623,8 @@ UI，我們需要其他機制以新屬性重新繪製元件樹。React
 的狀態是內建的元件內資料異動管理選項。應用程式的狀態改變時，UI 會重新繪製以反映這些變動。
 
 使用者與應用程式互動，它們瀏覽、搜尋、過濾、選取、新增、修改與刪除。使用者與應用程式互動時，應用程式狀態改變，而這些改變會在
-UI 中反映給使用者。畫面與選單出現又消失、內容變化、指示器開啟又關閉，在 React
-中，UI 反映應用程式的狀態。
+UI 中反映給使用者。畫面與選單出現又消失、內容變化、指示器開啟又關閉，**在 React
+中，UI 反映應用程式的狀態**。
 
 狀態可用單一 JavaScript 物件在 React
 元件中表示。元件的狀態改變時，元件繪製反應改變新
@@ -640,3 +640,63 @@ UI。還有什麼比它更函式性？輸入一些資料，React 元件會將資
 StarRating 元件需要兩個重要資料：要顯示的星號數量與星號數量代表的評分。
 
 我們需要可點擊、具有 selected 屬性的 Star 元件。每個星號可用一個無狀態函式性元件表示：
+
+```javascript
+const Star = ({selected = false, onClick = f => f}) =>
+  <div className={(selected) ? 'star selected' : 'star'}
+       onClick={onClick}>
+  </div>;
+Star.propTypes = {
+  selected: PropTypes.bool,
+  onClick: PropTypes.func
+};
+```
+
+無狀態函式性元件是更複雜的有狀態元件之子元素。盡可能保持元件無狀態是個好主意。
+
+現在可用 Star 來建構 StarRating。StarRating 會從元件的屬性取得要顯示的星號的總數。使用者可改變的評分會儲存在狀態中。
+
+以下以 createClass 類別定義的元件中運用狀態：
+
+```javascript
+const StarRating = createClass({
+  displayName: 'StarRating',
+  propTypes: {
+    totalStars: PropTypes.number
+  },
+  getDefaultProps() {
+    return {
+      totalStars: 5
+    }
+  },
+  getInitialState() {
+    return {
+      starSelected: 0
+    }
+  },
+  change(starsSelected) {
+    this.setState({starsSelected});
+  },
+  render() {
+    const {totalStars} = this.props;
+    const {starsSelected} = this.state;
+    return (
+      <div className="star-rating">
+        {[...Array(totalStars)].map((n, i) =>
+          <Star key={i}
+                selected={i < starsSelected}
+                onClick={() => this.change(i + 1)}
+          />
+        )}
+        <p>{starsSelected} of {totalStars} stars</p>
+      </div>
+    );
+  }
+});
+```
+
+ES6 元件類別寫法：
+
+```javascript
+
+```

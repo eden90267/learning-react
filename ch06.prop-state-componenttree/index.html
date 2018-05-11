@@ -7,6 +7,47 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>React example</title>
   <style>
+    html, body, #react-container {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+
+    #react-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .star-rating {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+    }
+
+    .star {
+      cursor: pointer;
+      width: 2em;
+      height: 2em;
+      background-color: grey;
+      -webkit-clip-path:
+        polygon(50% 0%, 63% 38%, 100% 38%,
+        69% 59%, 82% 100%, 50% 75%,
+        18% 100%, 31% 59%, 0% 38%, 37% 38%);
+      clip-path: polygon(50% 0%, 63% 38%,
+      100% 38%, 69% 59%, 82% 100%,
+      50% 75%, 18% 100%, 31% 59%,
+      0% 38%, 37% 38%);
+    }
+
+    .star.selected {
+      background-color: red;
+    }
+
+    p {
+      flex-basis: 100%;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -18,16 +59,55 @@
 <script type="text/babel">
   // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
 
-  const {Component, PropTypes} = React;
+  const {Component, PropTypes, createClass} = React;
   const {render} = ReactDOM;
 
-  const Star =
+  const Star = ({selected = false, onClick = f => f}) =>
+    <div className={(selected) ? 'star selected' : 'star'}
+         onClick={onClick}>
+    </div>;
+  Star.propTypes = {
+    selected: PropTypes.bool,
+    onClick: PropTypes.func
+  };
+
+  const StarRating = createClass({
+    displayName: 'StarRating',
+    propTypes: {
+      totalStars: PropTypes.number
+    },
+    getDefaultProps() {
+      return {
+        totalStars: 5
+      }
+    },
+    getInitialState() {
+      return {
+        starSelected: 0
+      }
+    },
+    change(starsSelected) {
+      this.setState({starsSelected});
+    },
+    render() {
+      const {totalStars} = this.props;
+      const {starsSelected} = this.state;
+      return (
+        <div className="star-rating">
+          {[...Array(totalStars)].map((n, i) =>
+            <Star key={i}
+                  selected={i < starsSelected}
+                  onClick={() => this.change(i + 1)}
+            />
+          )}
+          <p>{starsSelected} of {totalStars} stars</p>
+        </div>
+      );
+    }
+  });
 
   render(
-    <AddColorForm onNewColor={(title, color) => {
-      console.log(`TODO: add new ${title} and ${color} to the list`);
-      console.log(`TODO: render UI with new Color`);
-    }}/>,
+    <StarRating/>,
     document.getElementById('react-container')
   );
 
