@@ -813,4 +813,307 @@ constructor(props) {
 React 元件時你會想要限制具有狀態的元件之數量。
 
 > Top! 更新元件屬性  
-> 以元件屬性初始化狀態變數時，你或許需要在父元件改變這些屬性時重新初始化
+> 以元件屬性初始化狀態變數時，你或許需要在父元件改變這些屬性時重新初始化元件的狀態。componentWillRecieveProps
+> 生命期方法可用來解決這個問題。Ch 07 會再深入討論。
+
+## 元件樹的狀態
+
+所有 React 元件都可以有自己的狀態，但何必呢？
+
+- 使用 React 就是不想在應用程式中到處找狀態變數
+- 使用 React 就是要建構容易理解的可擴充應用程式
+
+讓應用程式容易理解的最重要一點是盡可能限制使用狀態元件之數量。
+
+
+許多 React
+應用程式可將所有狀態資料放在根元件。狀態資料可透過屬性在元件樹中傳遞，而資料可透過雙向綁定傳回樹根。結果是應用程式的狀態集中在一個地方，這通常稱為具有
+“單一的真理來源”。
+
+接下來討論如何設計狀態都儲存在根元件的展現層。
+
+### 顏色管理應用程式概觀
+
+顏色管理程式可讓使用者對自訂清單新增名稱與評分或刪除顏色。顏色管理模式的全部狀態可使用單一陣列表示：
+
+```javascript
+{
+    colors: [
+        {
+            "id": "0175d1f0-a8c6-41bf-8d02-df5734d829a4",
+            "title": "ocean at dusk",
+            "color": "#00c4e2",
+            "rating": 5
+        },
+        {
+            "id": "83c7ba2f-7392-4d7d-9e23-35adbe186046",
+            "title": "lawn",
+            "color": "#26ac56",
+            "rating": 3
+        },
+        {
+            "id": "a11e3995-b0bd-4d58-8c48-5e49ae7f7f23",
+            "title": "bright red",
+            "color": "#ff0000",
+            "rating": 0
+        }
+    ]
+}
+```
+
+### 從元件樹向下傳遞屬性
+
+我們在前面建構了 StarRating
+元件將評分儲存在狀態中。在顏色管理應用程式中，評分儲存在每個顏色物件中。視
+StarRating
+為**展示元件**並宣告成無狀態函式性元件更為合理。展示元件只在乎應用程式看起來的樣子。它們只繪製
+DOM 元素或其他展示元件。所有資料透過屬性傳送給元件並透過 callback 函式傳遞出去。
+
+為讓 StarRating
+作為純展示元件，我們必須刪除狀態。展示元件只使用屬性。由於我們要從元件移除狀態，使用者改變評分時資料會透過
+callback 函式傳遞出去：
+
+```javascript
+const StarRating = ({starsSelected = 0, totalStars = 5, onRate = f => f}) =>
+  <div className="star-rating">
+    {[...Array(totalStars)].map((n, i) =>
+      <Star key={i}
+            selected={i < starsSelected}
+            onClick={() => onRate(i + 1)}/>
+    )}
+    <p>{starsSelected} of {totalStars} stars</p>
+  </div>;
+```
+
+首先，starsSelected 不再是一個狀態變數；它是個屬性。其次，元件加上 onRate 這個
+callback 屬性。相較於使用者改變評分時呼叫 onState，此元件呼叫 onRate
+並以參數傳送評分。
+
+> Top! 可重複使用元件的狀態  
+> 你可能會需要建構具有狀態的 UI 元件供不同應用程式使用。並不是一定要玩從元件全移除只用於展示的狀態變數。它是個通用規則，但有時在展示元件中保存狀態是合理的。
+
+將狀態限制在根元件表示所有資料必須作為屬性向下傳遞給子元件。
+
+在顏色管理中，狀態由 App 元件中宣告的顏色陣列組成。這些顏色以屬性向下傳遞到
+ColorList 元件：
+
+```javascript
+class App extends Component {
+  constructor() {
+    super(...arguments);
+    this.state = {
+      colors: []
+    }
+  }
+  render() {
+    const {colors} = this.state;
+    return (
+      <div className="app">
+        <AddColorForm />
+        <ColorList colors={colors}/>
+      </div>
+    )
+  }
+}
+```
+
+colors 顏色一開始是空的，因此 ColorList
+元件會顯示一個訊息而非顏色。陣列有顏色後，每個顏色的資料會以屬性傳給 Color 元件：
+
+```javascript
+const ColorList = ({colors = []}) =>
+  <div className="color-list">
+    {(colors.length === 0) ?
+      <p>No Colors Listed. (Add a Color)</p> :
+      colors.map(color =>
+        <Color key={color.id} {...color} />
+      )
+    }
+  </div>;
+ColorList.propTypes = {
+  colors: PropTypes.array
+};
+```
+
+現在 Color 元件可以顯示顏色的名稱與十六進位值，並將顏色的評分以屬性傳給
+StarRating 元件：
+
+```javascript
+const Color = ({title, color, rating = 0}) =>
+  <section className="color">
+    <h1>{title}</h1>
+    <div className="color"
+         style={{backgroundColor: color}}>
+    </div>
+    <div>
+      <StarRating starsSelected={rating}/>
+    </div>
+  </section>;
+```
+
+### 將資料傳回元件樹
+
+為加入新顏色，我們需要個別識別顏色的辦法。識別符號可用於找尋狀態資料中的顏色。我們使用
+uuid 函式庫建構絕對獨特的 ID：
+
+```shell
+npm i uuid --save
+```
+
+新顏色會從 AddColorForm 元件加入顏色管理。該元件有個稱為 onNewColor 的選擇性
+callback 函式屬性。使用者加入新顏色並提交表單時，onNewColor
+函式會以使用者輸入的新名稱與顏色值叫用：
+
+```javascript
+const AddColorForm = ({onNewColor = f => f}) => {
+
+  let _title, _color;
+
+  const submit = e => {
+    e.preventDefault();
+    onNewColor(_title.value, _color.value);
+    _title.value = '';
+    _color.value = '#000000';
+    _title.focus()
+  };
+
+  return (
+    <form className="add-color" onSubmit={submit}>
+      <input ref={input => _title = input} type="text" placeholder="color title..." required/>
+      <input ref={input => _color = input} type="color" required/>
+      <button>ADD</button>
+    </form>
+  )
+};
+```
+
+```javascript
+class App extends Component {
+  constructor() {
+    super(...arguments);
+    this.state = {
+      colors: []
+    };
+    this.addColor = this.addColor.bind(this);
+  }
+  addColor(title, color) {
+    const colors = [
+      ...this.state.colors,
+      {
+        id: v4(),
+        title,
+        color,
+        rating: 0
+      }
+    ];
+    this.setState({colors});
+  }
+  render() {
+    const {addColor} = this;
+    const {colors} = this.state;
+    return (
+      <div className="app">
+        <AddColorForm onNewColor={addColor} />
+        <ColorList colors={colors}/>
+      </div>
+    )
+  }
+}
+```
+
+若使用者希望評分或刪除顏色，我們必須收集顏色的資訊。每個顏色有個刪除按鈕：若使用者點擊該按鈕，我們會知道使用者想要刪除此按鈕。還有，若使用者從
+StarRating 元件改變評分，我們要修改他的評分：
+
+```javascript
+const Color = ({title, color, rating = 0, onRemove = f => f, onRate = f => f}) =>
+  <section className="color">
+    <h1>{title}</h1>
+    <button onClick={onRemove}>X</button>
+    <div className="color"
+         style={{backgroundColor: color}}>
+    </div>
+    <div>
+      <StarRating starsSelected={rating} onRate={onRate}/>
+    </div>
+  </section>;
+```
+
+```javascript
+const ColorList = ({colors = [], onRate = f => f, onRemove = f => f}) =>
+  <div className="color-list">
+    {(colors.length === 0) ?
+      <p>No Colors Listed. (Add a Color)</p> :
+      colors.map(color =>
+        <Color key={color.id} {...color}
+               onRate={(rating) => onRate(color.id, rating)}
+               onRemove={() => onRemove(color.id)}/>
+      )
+    }
+  </div>;
+```
+
+```javascript
+class App extends Component {
+  constructor() {
+    super(...arguments);
+    this.state = {
+      colors: []
+    };
+    this.addColor = this.addColor.bind(this);
+    this.rateColor = this.rateColor.bind(this);
+    this.removeColor = this.removeColor.bind(this);
+  }
+  addColor(title, color) {
+    const colors = [
+      ...this.state.colors,
+      {
+        id: v4(),
+        title,
+        color,
+        rating: 0
+      }
+    ];
+    this.setState({colors});
+  }
+  rateColor(id, rating) {
+    const colors = this.state.colors.map(color =>
+      (color.id !== id) ?
+        color :
+        {
+          ...color,
+          rating
+        }
+    );
+    this.setState({colors});
+  }
+  removeColor(id) {
+    const colors = this.state.colors.filter(
+      color => color.id !== id);
+    this.setState({colors});
+  }
+  render() {
+    const {addColor, rateColor, removeColor} = this;
+    const {colors} = this.state;
+    return (
+      <div className="app">
+        <AddColorForm onNewColor={addColor} />
+        <ColorList colors={colors} onRate={rateColor} onRemove={removeColor}/>
+      </div>
+    )
+  }
+}
+```
+
+setState 被呼叫時，UI 以新的狀態陣列重新繪製。此應用程式中陣列的所有變化均從 App 元件管理。這種方式讓應用程式的狀態與資料如何改變比較容易理解。
+
+React 元件相當扎實。它們提供清晰的方式管理與檢驗屬性與子元素溝通並從單一元件管理狀態資料。這些功能可建構更好的展示層。
+
+我們多次提到狀態是供資料異動用，你也可以用狀態快取應用程式的資料。舉例來說，若有使用者可搜尋的紀錄，記錄清單可儲存與狀態供搜尋。
+
+通常建議將狀態放在根元件，你會看到許多 React
+應用程式都採取這種做法。應用程式成長到某個規模後，雙向資料綁定與明確的傳遞屬性會變得很繁瑣。
+
+Flux 設計模式與 Redux 等 Flux 函式庫可用於管理狀態並減少這些狀況的模板。
+
+React 是相對較小的函式庫，因此我們已經討論過大部分的功能。還沒討論的 React
+元件主要功能包括元件生命週期與高階元件在下一章討論。
