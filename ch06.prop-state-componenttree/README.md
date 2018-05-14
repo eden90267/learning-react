@@ -671,7 +671,7 @@ const StarRating = createClass({
   },
   getInitialState() {
     return {
-      starSelected: 0
+      starsSelected: 0
     }
   },
   change(starsSelected) {
@@ -698,5 +698,119 @@ const StarRating = createClass({
 ES6 元件類別寫法：
 
 ```javascript
-
+class StarRating extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      starsSelected: 0
+    };
+    this.change = this.change.bind(this);
+  }
+  change(starsSelected) {
+    this.setState({starsSelected});
+  }
+  render() {
+    const {totalStars} = this.props;
+    const {starsSelected} = this.state;
+    return (
+      <div className="star-rating">
+        {[...Array(totalStars)].map((n, i) =>
+          <Star key={i}
+                selected={i < starsSelected}
+                onClick={() => this.change(i + 1)}
+          />
+        )}
+        <p>{starsSelected} of {totalStars} stars</p>
+      </div>
+    );
+  }
+}
+StarRating.propTypes = {
+  totalStars: PropTypes.number
+};
+StarRating.defaultProps = {
+  totalStars: 5
+};
 ```
+
+載入 ES6 元件時，它的建構元會以屬性作為第一個參數叫用。這些屬性依序以呼叫 super
+傳給父類別，此例中的父類別是 React.Component。呼叫 super 初始化元件實例，而
+React.Component 提供實例包括狀態管理在內的功能。呼叫 super 後，我們可以初始化元件的狀態變數。
+
+狀態初始化後，它的運作如 createClass 元件一樣。狀態只能以呼叫 this.setState
+改變，它改變狀態物件的指定部分。在每個 setState 呼叫後，render 函式被呼叫已使用新
+UI 更新狀態。
+
+### 以屬性初始化狀態
+
+我們可用屬性初始化狀態值。只有幾種狀況需要這種模式。最常見的狀況是建構不同應用程式的不同元件樹間可重複使用的元件。
+
+使用 createClass 時，根據屬性初始化狀態變數的一種好辦法是加上稱為
+componentWillMount 的方法。此方法在載入元件時被叫用，而你可以在這個方法中呼叫
+this.setState()。它也能存取 this.props，因此你可以透過 this.props
+使用值來初始化狀態。
+
+```javascript
+const StarRating = createClass({
+  displayName: 'StarRating',
+  propTypes: {
+    totalStars: PropTypes.number
+  },
+  getDefaultProps() {
+    return {
+      totalStars: 5
+    }
+  },
+  getInitialState() {
+    return {
+      starsSelected: 0
+    }
+  },
+  componentWillMount() {
+    const {starsSelected} = this.props;
+    if (starsSelected) {
+      this.setState({starsSelected});
+    }
+  },
+  change(starsSelected) {
+    this.setState({starsSelected});
+  },
+  render() {
+    const {totalStars} = this.props;
+    const {starsSelected} = this.state;
+    return (
+      <div className="star-rating">
+        {[...Array(totalStars)].map((n, i) =>
+          <Star key={i}
+                selected={i < starsSelected}
+                onClick={() => this.change(i + 1)}
+          />
+        )}
+        <p>{starsSelected} of {totalStars} stars</p>
+      </div>
+    );
+  }
+});
+```
+
+componentWillMount 是元件生命期的一部份。它可根據以 createClass 或 ES6
+類別建構的元件之屬性值初始化狀態。下一章會深入討論元件的生命期。
+
+ES6 類別元件有個初始化狀態的簡單方式。建構元作接收作為參數的屬性，因此你可以使用
+props 參數傳遞給建構元：
+
+```javascript
+constructor(props) {
+  super(props);
+  this.state = {
+    starsSelected: props.starsSelected || 0
+  };
+  this.change = this.change.bind(this);
+}
+```
+
+通常你會避免以屬性設定狀態變數。只有在絕對必要時才使用這種模式。你應該會發現這不困難，因為使用
+React 元件時你會想要限制具有狀態的元件之數量。
+
+> Top! 更新元件屬性  
+> 以元件屬性初始化狀態變數時，你或許需要在父元件改變這些屬性時重新初始化
