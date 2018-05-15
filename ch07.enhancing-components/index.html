@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Chap 07. Enhancing Components</title>
+</head>
+<body>
+<div id="react-container"></div>
+
+<script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+<script type="text/babel">
+  // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
+
+  const {Component, PropTypes, createClass} = React;
+  const {render} = ReactDOM;
+
+  class HiddenMessage extends Component {
+    constructor(props) {
+      super(props);
+      this.state = {
+        hidden: (props.hide) ? props.hide : true
+      };
+      this.hide = this.hide.bind(this);
+      this.show = this.show.bind(this);
+    }
+
+    componentWillReceiveProps(nextProps) {
+      this.setState({hidden: nextProps.hide});
+    }
+
+    hide() {
+      const hidden = true;
+      this.setState({hidden});
+    }
+
+    show() {
+      const hidden = false;
+      this.setState({hidden});
+    }
+
+    render() {
+      const {children} = this.props;
+      const {hidden} = this.state;
+      return (
+        <p onMouseEnter={this.show}
+           onMouseLeave={this.hide}>
+          {(hidden) ?
+            children.replace(/[a-zA-Z0-9]/g, "x") :
+            children
+          }
+        </p>
+      )
+    }
+  }
+
+  class HiddenMessages extends Component {
+
+    constructor() {
+      super(...arguments);
+      this.state = {
+        messages: [
+          "The crow corws after midnight",
+          "Bring a watch and dark clothes to the spot",
+          "Jericho Jericho Go"
+        ],
+        showing: -1
+      };
+    }
+
+    componentWillMount() {
+      this.interval = setInterval(() => {
+        let {showing, messages} = this.state;
+        showing = (++showing >= messages.length) ?
+          -1 :
+          showing;
+        this.setState({showing});
+      }, 1000);
+    }
+
+    componentWillUnmount() {
+      clearInterval(this.interval);
+    }
+
+    render() {
+      const {messages, showing} = this.state;
+      return (
+        <div className="hidden-messages">
+          {messages.map((message, i) =>
+            <HiddenMessage key={i}
+                           hide={(i !== showing)}>
+              {message}
+            </HiddenMessage>
+          )}
+        </div>
+      )
+    }
+
+  }
+
+  render(
+    <HiddenMessages/>,
+    document.getElementById('react-container')
+  );
+</script>
+</body>
+</html>
