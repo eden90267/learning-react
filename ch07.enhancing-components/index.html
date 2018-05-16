@@ -13,38 +13,63 @@
 <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
 <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
 <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fetch/1.0.0/fetch.min.js"></script>
 <script type="text/babel">
   // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
 
   const {Component, Children, PropTypes, createClass} = React;
   const {render} = ReactDOM;
 
-  const findChild = (children, child) =>
-    Children.toArray(children)
-      .filter(c => c.type === child)[0];
+  const DataComponent = (ComposedComponent, url) =>
+    class DataComponent extends Component {
+      constructor() {
+        super(...arguments);
+        this.state = {
+          data: [],
+          loading: false,
+          loaded: false
+        };
+      }
 
-  const WhenTruthy = ({children}) =>
-    Children.only(children);
+      componentWillMount() {
+        this.setState({loading: true});
+        fetch(url)
+          .then(response => response.json())
+          .then(data => this.setState({
+            loaded: true,
+            loading: false,
+            data
+          }));
+      }
 
-  const WhenFalsy = ({children}) =>
-    Children.only(children);
+      render() {
+        return (
+          <div className="data-component">
+            {(this.state.loading) ?
+              <div>Loading...</div> :
+              <ComposedComponent {...this.state}
+                                 {...this.props}/>
+            }
+          </div>
+        )
+      }
+    };
 
-  const Display = ({ifTruthy = true, children}) =>
-    (ifTruthy) ?
-      findChild(children, WhenTruthy) :
-      findChild(children, WhenFalsy);
+  const CountryNames = ({data, selected = ""}) =>
+    <select className="people-list" defaultValue={selected}>
+      {data.map(({name}, i) =>
+        <option key={i} value={name}>{name}</option>
+      )}
+    </select>;
 
-  const age = 19
+  const CountryDropDown =
+    DataComponent(
+      CountryNames,
+      'https://restcountries.eu/rest/v1/all'
+    );
 
   render(
-    <Display ifTruthy={age >= 21}>
-      <WhenTruthy>
-        <h1>You can Enter</h1>
-      </WhenTruthy>
-      <WhenFalsy>
-        <h1>Bast it Kid</h1>
-      </WhenFalsy>
-    </Display>,
+    <CountryDropDown selected="United States"/>,
     document.getElementById('react-container')
   );
 </script>

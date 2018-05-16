@@ -595,4 +595,474 @@ npm i isomorphic-fetch --save
 API 呼叫的元件必須處理使用者等待回應時遇到的延遲。我們可在狀態中引用變數告訴元件請求是否等待中來處理這些問題。
 
 下面的範例，CountryList 元件建構一個有排序國家名稱清單。載入後，元件會發出 API
-呼叫並改變狀態已反映資料已載入
+呼叫並改變狀態以反映資料已載入。載入中的狀態會維持 true 直到 API 呼叫有了回應：
+
+```javascript
+class CountryList extends Component {
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      countryNames: [],
+      loading: false
+    }
+  }
+
+  componentDidMount() {
+    this.setState({loading: true});
+    fetch('https://restcountries.eu/rest/v1/all')
+      .then(response => response.json())
+      .then(json => json.map(country => country.name))
+      .then(countryNames =>
+        this.setState({countryNames, loading: false})
+      );
+  }
+
+  render() {
+    const {countryNames, loading} = this.state;
+    return (loading) ?
+      <div>Loading Country Names...</div> :
+      (!countryNames.length) ?
+        <div>No country Names</div> :
+        <ul>
+          {countryNames.map(
+            (x, i) => <li key={i}>{x}</li>
+          )}
+        </ul>;
+  }
+
+}
+
+render(
+  <CountryList/>,
+  document.getElementById('react-container')
+);
+```
+
+### 並用 D3 時間軸
+
+Data Driven Documents (D3) 是個建構瀏覽器資料視覺化的 JavaScript 框架，D3 提供一組工具讓我們計算刻度與內插資料。此外，D3 是函式性的，可鏈接函式呼叫以從資料陣列產生 DOM 視覺化來製作 D3 應用程式。
+
+時間軸是個資料視覺化的範例。時間軸以事件日期作為資料並以圖型視覺化的展示資訊，之前發生的歷史事件在之後發生的歷史事件的左邊。時間軸上事件間的空白元素代表事件間的時間間隔。
+
+此時間軸將 100 年左右事件以 500 個像素寬進行視覺化。將年值轉換成相對應的像素值稱為內插 (interpolation)，D3 提供內插資料所需的所有工具。
+
+讓我們來看一下如何並用 D3 與 React 來建構時間軸。
+
+```shell
+npm i d3 --save
+```
+
+D3 通常取用物件陣列並根據資料製作視覺化。以下是 滑雪日期歷史 的時間軸資料：
+
+```javascript
+const historicDatesForSkiing = [
+  {
+      year: 1879,
+      event: "Ski Manufacturing Begins"
+  },
+  {
+      year: 1882,
+      event: "US Ski Club Founded"
+  },
+  {
+      year: 1924,
+      event: "First Winter Olympics Held"
+  },
+  {
+      year: 1926,
+      event: "First US Ski Shop Opens"
+  },
+  {
+      year: 1932,
+      event: "North Americas First Rope Tow Spins"
+  },
+  {
+      year: 1936,
+      event: "First Chairlift Spins"
+  },
+  {
+      year: 1949,
+      event: "Squaw Valley, Mad River Glen Open"
+  },
+  {
+      year: 1958,
+      event: "First Gondola Spins"
+  },
+  {
+      year: 1964,
+      event: "Plastic Buckle Boots Available"
+  }
+]
+```
+
+並用 D3 與 React 元件最簡單的方式是讓 React 繪製 UI，然後用 D3 建構視覺化。在下面範例中，D3 整合進 React 元件。繪製元件後，D3 建構出視覺化並將其加到 DOM 中。
+
+```javascript
+class Timeline extends Component {
+
+  constructor({data = []}) {
+    super({data});
+    const times = d3.extent(data.map(d => d.year));
+    const range = [50, 450];
+    this.state = {data, times, range};
+  }
+
+  componentDidMount() {
+    let group;
+    const {data, times, range} = this.state;
+    const {target} = this.refs;
+    const scale = d3.time.scale().domain(times).range(range);
+
+    d3.select(target)
+      .append('svg')
+      .attr('height', 200)
+      .attr('width', 500);
+
+    group = d3.select(target.children[0])
+      .selectAll('g')
+      .data(data)
+      .enter()
+      .append('g')
+      .attr(
+        'transform',
+        (d, i) => 'translate(' + scale(d.year) + ',0)'
+      );
+
+    group.append('circle')
+      .attr('cy', 160)
+      .attr('r', 5)
+      .attr('fill', 'blue');
+
+    group.append('text')
+      .text(d => d.year + ' - ' + d.event)
+      .style('font-size', 10)
+      .attr('y', 115)
+      .attr('x', -95)
+      .attr('transform', 'rotate(-45)');
+  }
+
+  render() {
+    return (
+      <div className="timeline">
+        <h1>{this.props.name} Timeline</h1>
+        <div ref="target"></div>
+      </div>
+    )
+  }
+
+}
+```
+
+此例中，有些 D3 的設定發生在建構元中，但大部分工作由 componentDidMount 函式中的 D3 完成。DOM 繪製後，D3 使用 Scalable Vector Graphics (SVG) 建構視覺化。這種方式可行且是將 D3 視覺化加入 React 元件的好方法。
+
+但我們可以對此進一步的整合以讓 React 管理 DOM 而 D3 執行運算。看一下這三行程式：
+
+```javascript
+const times = d3.extent(data.map(d => d.year));
+const range = [50, 450];
+    
+const scale = d3.time.scale().domain(times).range(range);
+```
+
+times 與 range 都在建構元中設定並加入元件的狀態中。
+
+- times 代表我們的值域，它帶有之前與最新年份的資料。它由 D3 的 extent 函式計算以找出數值陣列中的最大與最小值。
+- range 代表時間軸中像素的範圍，第一個日期 1879 放在 x 軸的 0px 處，而最後一個日期 1964 放在 x 軸的 450px 處。
+- scale 代表建構刻度，它是用於對時間刻度內插像素值的函式。此刻度透過傳送值域與範圍給 D3 的 time.scale 函式建構。scale 函式用於視覺化以取得 1879 與 1964 間每個日期的 x 位置。
+
+相較於在 componentDidMount 建構刻度，我們可在取得值域與範圍後從建構元將它加到元件中。現在刻度可以在元件中使用 this.scale(year) 存取：
+
+```javascript
+constructor({data = []}) {
+  super({data});
+  const times = d3.extent(data.map(d => d.year));
+  const range = [50, 450];
+  this.scale = d3.time.scale().domain(times).range(range);
+  this.state = {data, times, range};
+}
+```
+
+在 componentDidMount 中，D3 先建構一個 SVG 元素加入到目標的參考中。
+
+```javascript
+d3.select(target)
+  .append('svg')
+  .attr('height', 200)
+  .attr('width', 500);
+```
+
+建構 UI 是 React 的工作。相較於使用 D3 進行，讓我們建構一個回傳 SVG 元素的 Canvas 元件：
+
+```javascript
+const Canvas = ({children}) =>
+  <svg height="200" width="500">
+    {children}
+  </svg>;
+```
+
+接下來，D3 選取 svg 元素，目標下的第一個子元素，並對時間軸陣列中每個資料點加上一個 group 元素，然後 group 元素使用 scale 函式轉換成 x 軸的值位置：
+
+```javascript
+group = d3.select(target.children[0])
+  .selectAll('g')
+  .data(data)
+  .enter()
+  .append('g')
+  .attr(
+    'transform',
+    (d, i) => 'translate(' + scale(d.year) + ',0)'
+  );
+```
+
+group 元素是一個 DOM 元素，因此我們也可以讓 React 處理這個工作。下面是 TimelineDot 元件，可用於設定 group 元素並沿著 x 軸定位：
+
+```javascript
+const TimelineDot = ({position}) =>
+  <g transform={`translate(${position}, 0)`}></g>;
+```
+
+接下來，D3 對 group 加上 circle 元素與一些 “樣式”。text 元素以連接事件年份與事件標題作為值，然後定位並依藍色圓圈旋轉文字：
+
+```javascript
+group.append('circle')
+  .attr('cy', 160)
+  .attr('r', 5)
+  .attr('fill', 'blue');
+
+group.append('text')
+  .text(d => d.year + ' - ' + d.event)
+  .style('font-size', 10)
+  .attr('y', 115)
+  .attr('x', -95)
+  .attr('transform', 'rotate(-45)');
+```
+
+我們要做的只是修改 TimelineDot 元件以包括 circle 元素與從屬性擷取文字的 text 元素：
+
+```javascript
+const TimelineDot = ({position, txt}) =>
+  <g transform={`translate(${position}, 0)`}>
+    <circle cy={160}
+            r={5}
+            style={{fill: 'blue'}}></circle>
+    <text y={115}
+          x={-95}
+          transform="rotate(-45)"
+          style={{fontSize: '10px'}}>{txt}</text>
+  </g>;
+```
+
+現在 React 負責使用虛擬 DOM 管理 UI。D3 的角色被縮小，但還是提供一些 React 沒有的基本功能。它幫助建構值域與範圍並構建依年份內插像素值的 scale 函式。下面是重構後的 Timeline 元件：
+
+```javascript
+class Timeline extends Component {
+
+  constructor({data = []}) {
+    super({data});
+    const times = d3.extent(data.map(d => d.year));
+    const range = [50, 450];
+    this.scale = d3.time.scale().domain(times).range(range);
+    this.state = {data, times, range};
+  }
+
+  render() {
+    const {data} = this.state;
+    const {scale} = this;
+    return (
+      <div className="timeline">
+        <h1>{this.props.name} Timeline</h1>
+        <Canvas>
+          {data.map((d, i) =>
+            <TimelineDot key={i}
+                         position={scale(d.year)}
+                         txt={`${d.year} - ${d.event}`}/>
+          )}
+        </Canvas>
+      </div>
+    )
+  }
+
+}
+```
+
+我們可以整合 React 與任何 JavaScript。生命期函式是 JavaScript 能夠執行 React 所缺乏的的功能的地方，但我們應該避免加入管理 UI 的函式庫：那是 React 的工作。
+
+## 高階元件
+
+高階元件 (higher-order component，HOC) 是以 React 元件作為參數並回傳另一個 React 元件的函式。HOC 通常將輸入的元件以維護狀態或具有功能的類別包裝。高階元件是跨 React 元件重複使用功能的最佳方式。
+
+### 不支援 mixin
+
+直到 v0.13，在 React 元件中引入功能的最好方式是使用 mixin。mixin 可直接加入以 createClass 建構的元件作為組態屬性。React.createClass 還是可以使用 mixin，但 ES6 類別或無狀態函式性元件並不支援。未來 React 版本也不會支援。
+
+HOC 可讓我們將元件包裝在另一個元件中。父元件可保存能夠以屬性向下傳遞的狀態或功能。組合元件除了屬性與方法名稱外並不需要知道 HOC 如何實作。
+
+檢視下列 PeopleList 元件。它從 API 載入假使用者資料並繪製姓名清單，載入使用者時會顯示載入中的訊息。載入後會顯示在 DOM 上面：
+
+```javascript
+class PeopleList extends Component {
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      data: [],
+      loaded: false,
+      loading: false
+    };
+  }
+
+  componentWillMount() {
+    this.setState({loading: true});
+    fetch('https://randomuser.me/api/?results=10')
+      .then(response => response.json())
+      .then(obj => obj.results)
+      .then(data => this.setState({
+        loaded: true,
+        loading: false,
+        data
+      }));
+  }
+
+  render() {
+    const {data, loading, loaded} = this.state;
+    return (loading) ?
+      <div>Loading</div> :
+      <ol className="people-list">
+        {data.map((person, i) => {
+          const {first, last} = person.name;
+          return <li key={i}>{first} {last}</li>
+        })}
+      </ol>;
+  }
+
+}
+
+
+render(
+  <PeopleList/>,
+  document.getElementById('react-container')
+);
+```
+
+若以此載入功能，它可以跨元件重複使用。我們建構高階元件 DataComponent 來建構載入資料的 React 元件。
+
+```javascript
+const PeopleList = ({data}) =>
+  <ol className="people-list">
+    {data.map((person, i) => {
+      const {first, last} = person.name;
+      return <li key={i}>{first} {last}</li>
+    })}
+  </ol>;
+
+const RandomMeUsers = DataComponent(
+  PeopleList,
+  "https://randomuser.me/api?results=10"
+);
+
+
+render(
+  <RandomMeUsers/>,
+  document.getElementById('react-container')
+);
+```
+
+資料的處理移至 HOC，而 UI 由 PeopleList 元件處理。HOC 提供載入狀態與載入機制並改變它自己的狀態。載入資料時，HOC 會顯示載入中訊息。資料載入後，HOC 會處理 PeopleList 的載入並以 data 屬性船入資料：
+
+```javascript
+const DataComponent = (ComposedComponent, url) =>
+  class DataComponent extends Component {
+    constructor() {
+      super(...arguments);
+      this.state = {
+        data: [],
+        loading: false,
+        loaded: false
+      };
+    }
+
+    componentWillMount() {
+      this.setState({loading: true});
+      fetch(url)
+        .then(response => response.json())
+        .then(data => this.setState({
+          loaded: true,
+          loading: false,
+          data
+        }));
+    }
+
+    render() {
+      return (
+        <div className="data-component">
+          {(this.state.loading) ?
+            <div>Loading...</div> :
+            <ComposedComponent {...this.state}/>
+          }
+        </div>
+      )
+    }
+  };
+```
+
+請注意 DataComponent 實際上是個函式。所有高階元件都是函式。ComposedComponent 是我們包裝的元件，其回傳的 DataComponent 類別儲存與管理狀態。狀態改變且資料載入時，ComposedComponent 被繪製且資料以屬性傳入。
+
+HOC 可用於建構任何型別的資料元件。讓我們看一下 DataComponent 如何重複使用以建構從 restcountries.eu 的 API 產生世界各國名稱的 CountryDropDown：
+
+```javascript
+const DataComponent = (ComposedComponent, url) =>
+  class DataComponent extends Component {
+    constructor() {
+      super(...arguments);
+      this.state = {
+        data: [],
+        loading: false,
+        loaded: false
+      };
+    }
+
+    componentWillMount() {
+      this.setState({loading: true});
+      fetch(url)
+        .then(response => response.json())
+        .then(data => this.setState({
+          loaded: true,
+          loading: false,
+          data
+        }));
+    }
+
+    render() {
+      return (
+        <div className="data-component">
+          {(this.state.loading) ?
+            <div>Loading...</div> :
+            <ComposedComponent {...this.state}
+                               {...this.props}/>
+          }
+        </div>
+      )
+    }
+  };
+
+const CountryNames = ({data, selected = ""}) =>
+  <select className="people-list" defaultValue={selected}>
+    {data.map(({name}, i) =>
+      <option key={i} value={name}>{name}</option>
+    )}
+  </select>;
+
+const CountryDropDown =
+  DataComponent(
+    CountryNames,
+    'https://restcountries.eu/rest/v1/all'
+  );
+
+render(
+  <CountryDropDown selected="United States"/>,
+  document.getElementById('react-container')
+);
+```
+
+讓我們看看另一個 HOC。
