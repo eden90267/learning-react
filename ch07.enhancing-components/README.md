@@ -500,4 +500,99 @@ render() {
 
 ## React.Children
 
-React.Children 提供操作特定元件的子元件之方式
+React.Children 提供操作特定元件的子元件之方式。它能讓你計算、對應、迭代，或將
+props.children 轉換成陣列。它也能讓你以 React.Children.only
+檢驗只顯示單一的子元件：
+
+```javascript
+import {Children} from 'react';
+import {render} from 'react-dom';
+
+const Display = ({ifTruthy = true, children}) =>
+  (ifTruthy) ?
+    Children.only(children) :
+    null;
+
+const age = 22
+
+render(
+  <Display ifTruthy={age >= 21}>
+    <h1>You can enter</h1>
+  </Display>,
+  document.getElementById('react-container')
+);
+```
+
+若 Display 元件有多個子元件，React 會拋出一個錯誤：“onlyChild must be passed
+a children with exactly one child”
+
+我們也可使用 React.Children 將 children 元素轉換到陣列中。下一個範例擴充
+Display 元件以處理其他狀況：
+
+```javascript
+const {Component, Children, PropTypes, createClass} = React;
+const {render} = ReactDOM;
+
+const findChild = (children, child) =>
+  Children.toArray(children)
+    .filter(c => c.type === child)[0];
+
+const WhenTruthy = ({children}) =>
+  Children.only(children);
+
+const WhenFalsy = ({children}) =>
+  Children.only(children);
+
+const Display = ({ifTruthy = true, children}) =>
+  (ifTruthy) ?
+    findChild(children, WhenTruthy) :
+    findChild(children, WhenFalsy);
+
+const age = 19
+
+render(
+  <Display ifTruthy={age >= 21}>
+    <WhenTruthy>
+      <h1>You can Enter</h1>
+    </WhenTruthy>
+    <WhenFalsy>
+      <h1>Bast it Kid</h1>
+    </WhenFalsy>
+  </Display>,
+  document.getElementById('react-container')
+);
+```
+
+Display 元件會依條件為 true 或 false 顯示其中一個子元件。我們建構了 WhenTruthy
+與 whenFalsy 元件並將它們作為 Display 元件的子元件。findChild 函式使用了
+React.Children 將子元件轉換到陣列中。我們可過濾陣列以依元件型別找出並回傳個別子元件。
+
+## JavaScript 函式庫整合
+
+Angular 與 jQuery 等框架有自己的資料存取、繪製
+UI、狀態模型、路由處理等工具。React 只是建構 view 的函式庫，因此我們需要並用其他
+JavaScript 函式庫。若我們知道生命期函式如何運作，可以讓 React 與任何 JavaScript 函式庫合作。
+
+> Top! React 與 jQuery  
+> 並用 jQuery 與 React 對社群來說通常是個麻煩。jQuery 與 React
+> 可以整合，且整合會是學習 React 或改寫舊程式碼的好選擇，但與 React
+> 並用較小的函式庫而非大框架時應用程式的效能比較好。此外，使用 jQuery 略過虛擬
+> DOM 直接操作 DOM 會引發奇怪的錯誤。
+
+這一節會並用 React 元件與幾個不同的 JavaScript 函式庫，特別是呼叫 API 並以其他
+JavaScript 函式庫將資料視覺化。
+
+### 以 Fetch 發出請求
+
+Fetch 是 WHATWG 集團開發的自動補完函式庫 (Polyfill)，可讓我們使用 promise 發出
+API 呼叫。這一節介紹 isomorphic-fetch，它是能與 React 合作良好的 Fetch 版本。
+
+```shell
+npm i isomorphic-fetch --save
+```
+
+元件生命期函式提供整合 JavaScript 的地方。此例中，我們在該處發出 API 呼叫。發出
+API 呼叫的元件必須處理使用者等待回應時遇到的延遲。我們可在狀態中引用變數告訴元件請求是否等待中來處理這些問題。
+
+下面的範例，CountryList 元件建構一個有排序國家名稱清單。載入後，元件會發出 API
+呼叫並改變狀態已反映資料已載入

@@ -16,94 +16,35 @@
 <script type="text/babel">
   // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
 
-  const {Component, PropTypes, createClass} = React;
+  const {Component, Children, PropTypes, createClass} = React;
   const {render} = ReactDOM;
 
-  class HiddenMessage extends Component {
-    constructor(props) {
-      super(props);
-      this.state = {
-        hidden: (props.hide) ? props.hide : true
-      };
-      this.hide = this.hide.bind(this);
-      this.show = this.show.bind(this);
-    }
+  const findChild = (children, child) =>
+    Children.toArray(children)
+      .filter(c => c.type === child)[0];
 
-    componentWillReceiveProps(nextProps) {
-      this.setState({hidden: nextProps.hide});
-    }
+  const WhenTruthy = ({children}) =>
+    Children.only(children);
 
-    hide() {
-      const hidden = true;
-      this.setState({hidden});
-    }
+  const WhenFalsy = ({children}) =>
+    Children.only(children);
 
-    show() {
-      const hidden = false;
-      this.setState({hidden});
-    }
+  const Display = ({ifTruthy = true, children}) =>
+    (ifTruthy) ?
+      findChild(children, WhenTruthy) :
+      findChild(children, WhenFalsy);
 
-    render() {
-      const {children} = this.props;
-      const {hidden} = this.state;
-      return (
-        <p onMouseEnter={this.show}
-           onMouseLeave={this.hide}>
-          {(hidden) ?
-            children.replace(/[a-zA-Z0-9]/g, "x") :
-            children
-          }
-        </p>
-      )
-    }
-  }
-
-  class HiddenMessages extends Component {
-
-    constructor() {
-      super(...arguments);
-      this.state = {
-        messages: [
-          "The crow corws after midnight",
-          "Bring a watch and dark clothes to the spot",
-          "Jericho Jericho Go"
-        ],
-        showing: -1
-      };
-    }
-
-    componentWillMount() {
-      this.interval = setInterval(() => {
-        let {showing, messages} = this.state;
-        showing = (++showing >= messages.length) ?
-          -1 :
-          showing;
-        this.setState({showing});
-      }, 1000);
-    }
-
-    componentWillUnmount() {
-      clearInterval(this.interval);
-    }
-
-    render() {
-      const {messages, showing} = this.state;
-      return (
-        <div className="hidden-messages">
-          {messages.map((message, i) =>
-            <HiddenMessage key={i}
-                           hide={(i !== showing)}>
-              {message}
-            </HiddenMessage>
-          )}
-        </div>
-      )
-    }
-
-  }
+  const age = 19
 
   render(
-    <HiddenMessages/>,
+    <Display ifTruthy={age >= 21}>
+      <WhenTruthy>
+        <h1>You can Enter</h1>
+      </WhenTruthy>
+      <WhenFalsy>
+        <h1>Bast it Kid</h1>
+      </WhenFalsy>
+    </Display>,
     document.getElementById('react-container')
   );
 </script>
