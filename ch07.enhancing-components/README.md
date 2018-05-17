@@ -1101,3 +1101,65 @@ Expandable 接收 ComposedComponent
 false。收起狀態以屬性傳給 ComposedComponent。
 
 現在來建構 HiddenMessage 元件
+
+```javascript
+const ShowHideMessage = ({children, collapsed, expandCollapse}) =>
+  <p onClick={expandCollapse}>
+    {(collapsed) ?
+      children.replace(/[a-zA-Z0-9]/g, "x") :
+      children
+    }
+  </p>;
+
+const HiddenMessage = Expandable(ShowHideMessage);
+
+render(
+  <HiddenMessage hidden={true}>This is a hidden message</HiddenMessage>,
+  document.getElementById('react-container')
+);
+```
+
+讓我們以同一個 HOC 建構顯示與隱藏 div 中內容的按鈕。
+
+```javascript
+class MenuButton extends Component {
+
+  componentWillReceiveProps(nextProps) {
+    const collapsed = nextProps.collapsed && nextProps.collapsed === true ?
+      true :
+      false;
+    this.setState({collapsed});
+  }
+
+  render() {
+    const {children, collapsed, txt, expandCollapse} = this.props;
+    return (
+      <div className="pop-button">
+        <button onClick={expandCollapse}>{txt}</button>
+        {(!collapsed) ?
+          <div className="pop-su">
+            {children}
+          </div> :
+          ""
+        }
+      </div>
+    );
+  }
+}
+
+const PopUpButton = Expandable(MenuButton);
+
+render(
+  <PopUpButton hidden={true} txt="toggle popup">
+    <h1>Hidden Content</h1>
+    <p>This content will start off hidden</p>
+  </PopUpButton>,
+  document.getElementById('react-container')
+);
+```
+
+**高階元件是重複使用功能與將元件狀態或生命期如何管理的細節抽離的好方式**，它們能讓你產生更多只負責 UI 的無狀態函式性元件。
+
+## 從 React 外管理狀態
+
+React 狀態管理很棒。我們可以使用 React 內建的狀態管理系統建構很多應用程式，但應用程式變大時，狀態會變得有點嘛煩
