@@ -20,53 +20,31 @@
   const {Component, Children, PropTypes, createClass} = React;
   const {render} = ReactDOM;
 
-  const DataComponent = (ComposedComponent, url) =>
-    class DataComponent extends Component {
-      constructor() {
-        super(...arguments);
-        this.state = {
-          data: [],
-          loading: false,
-          loaded: false
-        };
+  const Expandable = ComposedComponent =>
+    class Expandable extends Component {
+      constructor(props) {
+        super(props);
+        const collapsed =
+          (props.hidden && props.hidden === true) ?
+            true :
+            false;
+        this.state = {collapsed};
+        this.expandCollapse = this.expandCollapse.bind(this);
       }
 
-      componentWillMount() {
-        this.setState({loading: true});
-        fetch(url)
-          .then(response => response.json())
-          .then(data => this.setState({
-            loaded: true,
-            loading: false,
-            data
-          }));
+      expandCollapse() {
+        let collapsed = !this.state.collapsed;
+        this.setState({collapsed});
       }
 
       render() {
-        return (
-          <div className="data-component">
-            {(this.state.loading) ?
-              <div>Loading...</div> :
-              <ComposedComponent {...this.state}
-                                 {...this.props}/>
-            }
-          </div>
-        )
+        return <ComposedComponent expandCollapse={this.expandCollapse}
+                                  {...this.state}
+                                  {...this.props} />
       }
     };
 
-  const CountryNames = ({data, selected = ""}) =>
-    <select className="people-list" defaultValue={selected}>
-      {data.map(({name}, i) =>
-        <option key={i} value={name}>{name}</option>
-      )}
-    </select>;
-
-  const CountryDropDown =
-    DataComponent(
-      CountryNames,
-      'https://restcountries.eu/rest/v1/all'
-    );
+  const ShowHideMessage
 
   render(
     <CountryDropDown selected="United States"/>,

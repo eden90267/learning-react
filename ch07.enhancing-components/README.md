@@ -1065,4 +1065,39 @@ render(
 );
 ```
 
-讓我們看看另一個 HOC。
+讓我們看看另一個 HOC。之前開發過的 HiddenMessage
+元件，其顯示與隱藏功能可重複使用。以下範例有個稱 Expandable 的 HOC，功能類似
+HiddenMessage 元件，你可工具 collapsed 屬性顯示或隱藏內容。此 HOC 還提供切換
+collapsed 屬性的機制。
+
+```javascript
+const Expandable = ComposedComponent =>
+  class Expandable extends Component {
+    constructor(props) {
+      super(props);
+      const collapsed =
+        (props.hidden && props.hidden === true) ?
+          true :
+          false;
+      this.state = {collapsed};
+      this.expandCollapse = this.expandCollapse.bind(this);
+    }
+
+    expandCollapse() {
+      let collapsed = !this.state.collapsed;
+      this.setState({collapsed});
+    }
+
+    render() {
+      return <ComposedComponent expandCollapse={this.expandCollapse}
+                                {...this.state}
+                                {...this.props} />
+    }
+  };
+```
+
+Expandable 接收 ComposedComponent
+並包裝顯示或隱藏的狀態與功能。收起的狀態為初始化屬性或預設值
+false。收起狀態以屬性傳給 ComposedComponent。
+
+現在來建構 HiddenMessage 元件
