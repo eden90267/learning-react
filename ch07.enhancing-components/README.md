@@ -1162,4 +1162,132 @@ render(
 
 ## 從 React 外管理狀態
 
-React 狀態管理很棒。我們可以使用 React 內建的狀態管理系統建構很多應用程式，但應用程式變大時，狀態會變得有點嘛煩
+React 狀態管理很棒。我們可以使用 React
+內建的狀態管理系統建構很多應用程式，但應用程式變大時，狀態會變得有點麻煩。在元件樹的根集中保存狀態會比較好處理，但就算這樣，你的應用程式還是會大到需要獨立於
+UI 的狀態資料層。
+
+從 React
+外管理狀態的好處之一是它會減少類別元件的需求。若不使用狀態，讓元件無狀態比較好。你應該只在有需要生命期函式建構類別，此時可以將類別功能放在
+HOC 並讓元件無狀態的只負責
+UI。無狀態函式性元件比較容易理解與測試，它們是純函式，因此適用於嚴格的函式性應用程式。
+
+從 React 外管理狀態有很多不同的意思。你可以並用 React 與 Backbone Model 或其他
+MVC 函式庫；你可以自行建構管理狀態的系統；你可以使用全域變數或 localStorage 與
+JavaScript 管理狀態。從 React 外管理狀態只是表示不使用 React 的狀態或 setState。
+
+### 繪製時鐘
+
+我們在第三章建構了一個時鐘。整個應用程式由函式與高階函式組成 startTicking 函式來啟動時鐘並在控制台顯示時間。
+
+```javascript
+const oneSecond = () => 1000
+const getCurrentTime = () => new Date()
+const clear = () => console.clear()
+const log = message => console.log(message)
+const abstractClockTime = date =>
+  ({
+    hours: date.getHours(),
+    minutes: date.getMinutes(),
+    seconds: date.getSeconds()
+  })
+const civilianHours = clockTime =>
+  ({
+    ...clockTime,
+    hours: (clockTime.hours > 12) ? clockTime.hours - 12 : clockTime.hours
+  })
+const appendAMPM = clockTime =>
+  ({
+    ...clockTime,
+    ampm: (clockTime.hours >= 12) ? "PM" : "AM"
+  })
+const display = target => time => target(time)
+const formatClock = format =>
+  time =>
+    format.replace("hh", time.hours)
+      .replace("mm", time.minutes)
+      .replace("ss", time.seconds)
+      .replace("tt", time.ampm)
+const compose = (...fns) =>
+  (arg) =>
+    fns.reduce(
+      (composed, f) => f(composed),
+      arg
+    )
+const convertToCivilianTime = clockTime =>
+  compose(
+    appendAMPM,
+    civilianHours
+  )(clockTime)
+const prependZero = key => clockTime =>
+  ({
+    ...clockTime,
+    [key]: (clockTime[key] < 10) ? "0" + clockTime[key] : clockTime[key]
+  })
+const doubleDigits = civilianTime =>
+  compose(
+    prependZero("hours"),
+    prependZero("minutes")
+  )(civilianTime)
+
+
+const startTicking = () =>
+  setInterval(
+    compose(
+      clear,
+      getCurrentTime,
+      abstractClockTime,
+      convertToCivilianTime,
+      doubleDigits,
+      display(log)
+    ),
+    oneSecond()
+  )
+
+startTicking();
+```
+
+若要在瀏覽器顯示呢？
+
+```javascript
+const AlarmClockDisplay = ({hours, minutes, seconds, ampm}) =>
+  <div className="clock">
+    <span>{hour}</span>
+    <span>:</span>
+    <span>{minutes}</span>
+    <span>:</span>
+    <span>{seconds}</span>
+    <span>{ampm}</span>
+  </div>;
+```
+
+我們可改用 render 方法與以元件繪製時間，並對小於 10 的值前面補零。render 必須是高階函式。
+
+```javascript
+const render = Component => civilianTime =>
+  ReactDOM.render(
+    <Component {...civilianTime}/>,
+    document.getElementById('react-container')
+  );
+
+const startTicking = () =>
+  setInterval(
+    compose(
+      getCurrentTime,
+      abstractClockTime,
+      convertToCivilianTime,
+      doubleDigits,
+      render(AlarmClockDisplay)
+    ),
+    oneSecond()
+  );
+
+startTicking();
+```
+
+此應用程式的狀態在 React 外管理。React 透過 ReactDOM.render
+繪製元件的自定高階函式讓我們保持函式性架構。從 React
+外管理狀態不是必要而只是個選項。React 是個函式庫，由你決定如何在應用程式中運用最好。
+
+接下來介紹 Flux，它是 React 狀態管理的替代方案之設計模式。
+
+## Flux

@@ -6,6 +6,51 @@
         content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>Chap 07. Enhancing Components</title>
+  <style media="screen">
+    body, html {
+      height: 100%;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Keania One", verdana;
+      background-color: black;
+      color: #008209;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    div.clock {
+      width: 339px;
+      border: solid 1px;
+      height: 80px;
+      position: relative;
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-end;
+    }
+    div.clock span {
+      font-size: 3em;
+    }
+    div.clock button {
+      position: absolute;
+      top: .2em;
+      right: .2em;
+      padding: .4em;
+      font-size: .8em;
+      line-height: .8em;
+      font-weight: bold;
+      color: #008209;
+      background-color: black;
+      border: solid 1px #008209;
+    }
+    div.clock button:hover {
+      background-color: #008209;
+      color: black;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
 <div id="react-container"></div>
@@ -18,66 +63,86 @@
   // JSX 程式碼放這裡，或連結帶有 JSX 的 JavaScript 檔案
 
   const {Component, Children, PropTypes, createClass} = React;
-  const {render} = ReactDOM;
 
-  const Expandable = ComposedComponent =>
-    class Expandable extends Component {
-      constructor(props) {
-        super(props);
-        const collapsed =
-          (props.hidden && props.hidden === true) ?
-            true :
-            false;
-        this.state = {collapsed};
-        this.expandCollapse = this.expandCollapse.bind(this);
-      }
+  const oneSecond = () => 1000
+  const getCurrentTime = () => new Date()
+  const clear = () => console.clear()
+  const log = message => console.log(message)
+  const abstractClockTime = date =>
+    ({
+      hours: date.getHours(),
+      minutes: date.getMinutes(),
+      seconds: date.getSeconds()
+    })
+  const civilianHours = clockTime =>
+    ({
+      ...clockTime,
+      hours: (clockTime.hours > 12) ? clockTime.hours - 12 : clockTime.hours
+    })
+  const appendAMPM = clockTime =>
+    ({
+      ...clockTime,
+      ampm: (clockTime.hours >= 12) ? "PM" : "AM"
+    })
+  const display = target => time => target(time)
+  const formatClock = format =>
+    time =>
+      format.replace("hh", time.hours)
+        .replace("mm", time.minutes)
+        .replace("ss", time.seconds)
+        .replace("tt", time.ampm)
+  const compose = (...fns) =>
+    (arg) =>
+      fns.reduce(
+        (composed, f) => f(composed),
+        arg
+      )
+  const convertToCivilianTime = clockTime =>
+    compose(
+      appendAMPM,
+      civilianHours
+    )(clockTime)
+  const prependZero = key => clockTime =>
+    ({
+      ...clockTime,
+      [key]: (clockTime[key] < 10) ? "0" + clockTime[key] : clockTime[key]
+    })
+  const doubleDigits = civilianTime =>
+    compose(
+      prependZero("hours"),
+      prependZero("minutes")
+    )(civilianTime)
 
-      expandCollapse() {
-        this.setState(prevState => ({collapsed: !prevState.collapsed}));
-      }
+  const AlarmClockDisplay = ({hours, minutes, seconds, ampm}) =>
+    <div className="clock">
+      <span>{hours}</span>
+      <span>:</span>
+      <span>{minutes}</span>
+      <span>:</span>
+      <span>{seconds}</span>
+      <span>{ampm}</span>
+    </div>;
 
-      render() {
-        return <ComposedComponent expandCollapse={this.expandCollapse}
-                                  {...this.state}
-                                  {...this.props} />
-      }
-    };
+  const render = Component => civilianTime =>
+    ReactDOM.render(
+      <Component {...civilianTime}/>,
+      document.getElementById('react-container')
+    );
 
+  const startTicking = () =>
+    setInterval(
+      compose(
+        getCurrentTime,
+        abstractClockTime,
+        convertToCivilianTime,
+        doubleDigits,
+        render(AlarmClockDisplay)
+      ),
+      oneSecond()
+    );
 
-  class MenuButton extends Component {
+  startTicking();
 
-    componentWillReceiveProps(nextProps) {
-      const collapsed = nextProps.collapsed && nextProps.collapsed === true ?
-        true :
-        false;
-      this.setState({collapsed});
-    }
-
-    render() {
-      const {children, collapsed, txt, expandCollapse} = this.props;
-      return (
-        <div className="pop-button">
-          <button onClick={expandCollapse}>{txt}</button>
-          {(!collapsed) ?
-            <div className="pop-su">
-              {children}
-            </div> :
-            ""
-          }
-        </div>
-      );
-    }
-  }
-
-  const PopUpButton = Expandable(MenuButton);
-
-  render(
-    <PopUpButton hidden={true} txt="toggle popup">
-      <h1>Hidden Content</h1>
-      <p>This content will start off hidden</p>
-    </PopUpButton>,
-    document.getElementById('react-container')
-  );
 </script>
 </body>
 </html>
