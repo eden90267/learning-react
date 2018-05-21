@@ -1291,3 +1291,206 @@ startTicking();
 接下來介紹 Flux，它是 React 狀態管理的替代方案之設計模式。
 
 ## Flux
+
+Flux 是 Facebook 開發的設計模式，要來保持單向的資料流。Flux
+出現前，網頁開發架構是由各種 MVC 設計模式支配。Flux 是 MVC 的替代方案，有完全不同的函式性設計模式。
+
+React 或 Flux 對函式性 JavaScript
+有什麼意義？簡單地說，無狀態函式性元件是純函式、它以指令作為屬性並回傳 UI
+元素。以狀態或屬性作為輸入的 React 類別也會產生 UI 元素。React
+元件被組成單一元件。輸入不可變資料給元件並回傳 UI 元素作為輸出。
+
+```javascript
+const Countdown = ({count}) => <h1>{count}</h1>;
+```
+
+Flux 提供一種**補充** React 的網頁應用程式架構，特別是它提供一種供給 React 用於建構
+UI 的資料的方式。
+
+在 Flux 中，應用程式的狀態是由 React 元件外的 store 管理。store
+保存與改變資料，是唯一能更新 Flux 的 view 的東西。若使用者與網頁互動 ——
+例如點擊按鈕或提交表單 —— 則會產生一個 action 來表示使用者的請求。action
+提供進行改變的指令與資料，它由稱為 dispatcher 的中央管理元件分發。dispatcher
+會收集 action 並分發給適當的 store。store 接收到 action，它會用 action
+作為指令來修改狀態並更新 view。資料流只有一個方向：action 到 dispatcher 到
+store 最終到 view。
+
+![](https://imgur.com/CSrn5pq.png)
+
+Flux 中的 action 與狀態資料是不可變的。action 可從 view 或網頁伺服器等來源發出。
+
+每個異動需要一個 action。每個 action 提供進行異動的指令。action
+還可作為紀錄告訴我們改變什麼、用什麼資料作出改變與 action
+的來源。這種模式不會有副作用。唯一能做改變的是 store。store 更新資料、view 在 UI
+中繪製更新，而 action 告訴我們資料如何與為何發生異動。
+
+以此設計模式限制應用程式的資料流能讓你的應用程式更容易修改與擴充。
+
+讓我們以一個倒數的應用程式作為範例開始如何使用 Flex 設計模式：
+
+### view
+
+從 view 這個 React 無狀態元件開始。Flux
+會管理應用程式的狀態，因此除非需要生命期函式，否則不需要類別元件。
+
+倒數的 view 以屬性取得要顯示的計數。它還接收 tick 與 reset 兩個函式：
+
+```javascript
+const Countdown = ({count, tick, reset}) => {
+  if (count) {
+    setTimeout(() => tick(), 1000);
+  }
+  return (count) ?
+    <h1>{count}</h1> :
+    <div onClick={() => reset(10)}>
+      <span>CELEBRATE!!!</span>
+      <span>(click to start over)</span>
+    </div>
+};
+```
+
+繪製此 view 時會顯示計數，除非為 0 會顯示 "CELEBRATE!!!"
+訊息給使用者。若計數不是 0，則 view 設定逾時，等待一秒，然後呼叫 TICK。
+
+計數為 0，此 view 不會呼叫其他 action 建構者直到使用者直到使用者點擊主 div
+並觸發重置。此重置將計數設為 10 並重新啟動倒數程序。
+
+> Top! 元件中的狀態  
+> 使用 Flux 不代表不能在 view 元件中有狀態，它表示應用程式的狀態不在 view
+> 元件中管理。舉例來說，Flux
+> 可管理時間軸的日期與時間，使用具有內部狀態來視覺化應用程式的時間軸之時間軸元件沒有問題。
+
+> 狀態應該少用 ——
+> 只有在必要時用於自行管理內部狀態的可重複使用元件。應用程式的其他部分不需要 “知道“
+> 子元件的狀態。
+
+### action 與 action creator
+
+action 提供 store 用於修改狀態的指令與資料。action **構建者**是用於將建構
+action 的細節抽象化的函式。action 本身是至少帶有 type 欄位的物件。action
+的型別通常是描述 action 的大寫字串。此外，action 可包含 store 所需的資料。例如：
+
+```javascript
+const countdownActions = dispatcher =>
+  ({
+    tick(currentCount) {
+      dispatcher.handleAction({type: 'TICK'})
+    },
+    reset(count) {
+      dispatcher.handleAction({
+        type: 'RESET',
+        count
+      })
+    }
+  });
+```
+
+載入倒數的 action 建構者時，dispatcher 以參數傳入。每次呼叫 TICK 或 RESET
+時會呼叫 dispatcher 的 handleAction 來 “分發” action 物件。
+
+### dispatcher
+
+dispatcher 只有一個，它代表此設計模式的交通管制部分。dispatcher 接收
+action，將其加上 action 來源的資訊後傳送給合適的 store 或處理該 action 的 store。
+
+雖然 Flux 不是框架，但 Facebook 有開放一個 Dispatcher
+類別原始碼可使用。dispatcher 通常依標準實作，因此最好是使用 Facebook
+的而不要自行設計。
+
+```javascript
+class CountdownDispatcher extends Dispatcher {
+
+  handleAction(action) {
+    console.log('dispatching action:', action);
+    this.dispatch({
+      source: 'VIEW_ACTION',
+      action
+    });
+  }
+
+}
+```
+
+handleAction 被呼叫時，它會帶有 action 來源的資料。建構 store 時會向
+dispatcher 登記並開始傾聽 action。收到 action 時會傳送給適當的 store。
+
+### store
+
+store 是儲存應用程式的邏輯與狀態資料的地方。store 類似 MVC 模式中的 model，但
+store 不限於在單一物件中管理資料。Flux 應用程式可以由一個 store 管理不同的資料型別。
+
+目前狀態資料可透過屬性從 store 取得。改變狀態時 store 所需的所有東西都來自
+action，store 會依型別處理 action 並根據它改變其資料。資料異動時，store
+會發出事件來通知訂閱此 store 的所有 view 有資料異動。讓我們參考以下範例：
+
+```javascript
+class CountdownStore extends EventEmitter {
+
+  constructor(count = 5, dispatcher) {
+    super();
+    this._count = count;
+    this.dispatcherIndex = dispatcher.register(
+      this.dispatch.bind(this)
+    );
+  }
+
+  get count() {
+    return this._count;
+  }
+
+  dispatch(payload) {
+    const {type, count} = payload.action;
+    switch (type) {
+
+      case 'TICK':
+        this._count = this._count - 1;
+        this.emit('TICK', this._count);
+        return true;
+      case 'RESET':
+        this._count = count;
+        this.emit('RESET', this._count);
+        return true;
+        
+    }
+  }
+
+}
+```
+
+此 store 保存倒數應用程式的狀態，也就是計數。計數可透過唯讀屬性讀取。action
+被分發時，store 使用它們來改變計數。TICK 會遞減計數，而 RESET 會以 action 中的資料重置計數。
+
+狀態改變後，store 會發出事件給傾聽它的 view。
+
+### 全部串起來
+
+```javascript
+const appDispatcher = new CountdownDispatcher();
+const actions = countdownActions(appDispatcher);
+const store = new CountdownStore(10, appDispatcher);
+
+const render = count => ReactDOM.render(
+  <Countdown count={count} {...actions} />,
+  document.getElementById('react-container')
+);
+
+store.on('TICK', () => render(store.count));
+store.on('RESET', () => render(store.count));
+render(store.count);
+```
+
+### Flux 實作
+
+- Flux
+- Reflux
+- Flummox
+- Fluxible
+- Redux
+
+  類似 Flux 的函式庫，透過函式而非物件達成模組化
+
+- MobX
+
+  使用 observable 回應狀態異動的狀態管理函式庫
+
+以上都是 Flux 設計模式的變化，其核心都是單向資料流。
