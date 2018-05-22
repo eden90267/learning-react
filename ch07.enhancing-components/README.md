@@ -1482,9 +1482,21 @@ render(store.count);
 ### Flux 實作
 
 - Flux
+
+  Facebook 的 Flux。Flux 函式庫包含一個 dispatcher 實作
+
 - Reflux
+
+  專注 action、store 與 view 的簡化單向資料流
+
 - Flummox
+
+  能讓你透過擴充 JavaScript 類別建構 Flux 模組的 Flux 實作
+
 - Fluxible
+
+  Yahoo 開發的同構 Flux 框架
+
 - Redux
 
   類似 Flux 的函式庫，透過函式而非物件達成模組化
