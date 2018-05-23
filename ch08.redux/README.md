@@ -329,3 +329,353 @@ colors 的 reducer 涉及顏色的陣列，它使用 color 的 reducer 來聚焦
 
 ### sort 的 reducer
 
+sort 的 reducer 是用於管理狀態中一個字串變數的函式：
+
+```javascript
+export const sort = (state = "SORTED_BY_DATE", action) => {
+  switch (action.type) {
+    case C.SORT_COLORS:
+      return action.sortBy
+    default:
+      return state;
+  }
+};
+```
+
+總而言之，狀態更新由 reducer 處理。reducer 是純函式，以狀態作為第一個參數而 action 是第二個參數。reducer 不會引發副作用且視參數為不可變資料。在 Redux 中，模組化透過 reducer 達成。reducer 最終組合成單一 reducer，它是能夠更新整個狀態樹的函式。
+
+下一節討論 color 的 reducer 如何與 sort 的 reducer 組合以更新狀態。
+
+## store
+
+在 Redux 中，store 儲存應用程式的狀態資料並處理所有狀態更新。雖然 Flux 設計模式允許多個特定用途的 store，但 Redux 只有一個 store。
+
+store 透過傳入目前狀態與 action 給一個 reducer 來處理狀態更新。我們會組合所有的 reducer 來製作這個單一 reducer。
+
+若所有 colors 的 reducer 建構 store，則狀態物件會是一個陣列 —— 顏色的陣列。store 的 getState 方法會回傳應用程式目前的狀態。以下以 color 的 reducer 建構一個 store：
+
+```javascript
+import {createStore} from "redux";
+import {color} from './reducer';
+
+const store = createStore(color);
+
+console.log(store.getState()); // {}
+```
+
+為建構以上的單一 reducer 樹，我們必須組合 colors 與 sort 的 reducer。Redux 的 combineReducers 函式可組合 reducer 成單一 reducer。這些 reducer 用於建構你的狀態樹，傳入的欄位名稱與 reducer 的名稱相符。
+
+store 也可以用初始資料建構。無狀態呼叫 colors 的 reducer 會回傳一個空陣列：
+
+```javascript
+import {createStore, combineReducers} from "redux";
+import {colors, sort} from './reducer';
+
+const store = createStore(combineReducers({colors, sort}));
+
+console.log(store.getState());
+
+// 控制台輸出
+
+// {
+//   colors: [],
+//   sort: "SORTED_BY_DATE"
+// }
+```
+
+以下以三個顏色與 SORTED_BY_TITLE 的 sort 值建構：
+
+```javascript
+import {createStore, combineReducers} from "redux";
+import {colors, sort} from './reducer';
+
+const initialState = {
+  "colors": [
+    {
+      "id": "8658c1d0-9eda-4a90-95e1-8001e8eb6036",
+      "title": "Ocean Blue",
+      "color": "#0070ff",
+      "rating": 3,
+      "timestamp": "Sat Mar 12 2016 16:12:09 GMT-0800 (PST)"
+    },
+    {
+      "id": "f9005b4e-975e-433d-a646-79df172e1dbb",
+      "title": "Tomato",
+      "color": "#d10012",
+      "rating": 2,
+      "timestamp": "Fri Mar 11 2016 12:00:00 GMT-0800 (PST)"
+    },
+    {
+      "id": "58d9caee-6ea6-4d7b-9984-65b145031979",
+      "title": "Lawn",
+      "color": "#67bf4f",
+      "rating": 1,
+      "timestamp": "Thu Mar 10 2016 01:11:12 GMT-0800 (PST)"
+    },
+    {
+      "id": "a5685c39-6bdc-4727-9188-6c9a00bf7f95",
+      "title": "Party Pink",
+      "color": "#ff00f7",
+      "rating": 5,
+      "timestamp": "Wed Mar 9 2016 03:26:00 GMT-0800 (PST)"
+    }
+  ],
+  "sort": "SORTED_BY_DATE"
+};
+
+const store = createStore(combineReducers({colors, sort}), initialState);
+
+console.log(store.getState().colors.length); // 3
+console.log(store.getState().sort); // "SORTED_BY_TITLE"
+```
+
+改變應用程式的狀態的唯一辦法是透過 store 分發 action。store 有個 dispatch 方法可接受 action 作為參數。透過 store 分發 action 時，action 透過 reducer 傳送以更新狀態：
+
+```javascript
+store.dispatch({
+  type: "ADD_COLOR",
+  id: "2222e1p5-3abl-0p523-30e4-8001l8yf2222",
+  title: "Party Pink",
+  color: "#F142FF",
+  timestamp: "Thu Mar 10 2016 01:11:12 GMT-0800 (PST)"
+});
+
+store.dispatch({
+  type: 'RATE_COLOR',
+  id: "2222e1p5-3abl-0p523-30e4-8001l8yf2222",
+  rating: 5
+});
+```
+
+改變資料的唯一辦法是分發 action 給 store。
+
+### 訂閱 store
+
+store 可讓你訂閱處理函式以讓 store 於完成 action 後叫用。下面範例紀錄狀態中的顏色數量：
+
+```javascript
+store.subscribe(() =>
+  console.log('color clount:', store.getState().colors.length)
+);
+
+store.dispatch({
+  type: "ADD_COLOR",
+  id: "2222e1p5-3abl-0p523-30e4-8001l8yf2222",
+  title: "Party Pink",
+  color: "#F142FF",
+  timestamp: "Thu Mar 10 2016 01:11:12 GMT-0800 (PST)"
+});
+
+store.dispatch({
+  type: "ADD_COLOR",
+  id: "3315e1p5-3abl-0p523-30e4-8001l8yf2412",
+  title: "Big Blue",
+  color: "#0000FF",
+  timestamp: "Thu Mar 10 2016 01:11:12 GMT-0800 (PST)"
+});
+
+store.dispatch({
+  type: 'RATE_COLOR',
+  id: "2222e1p5-3abl-0p523-30e4-8001l8yf2222",
+  rating: 5
+});
+
+store.dispatch({
+  type: 'REMOVE_COLOR',
+  id: '3315e1p5-3abl-0p523-30e4-8001l8yf2412'
+});
+
+// 控制台輸出：
+
+// color count: 1
+// color count: 2
+// color count: 2
+// color count: 1
+```
+
+以此傾聽程序訂閱 store 會在我們提交 action 時從控制台輸出顏色的數量。
+
+store 的 subscribe 方法回傳之後可供取消傾聽程序訂閱的函式：
+
+```javascript
+const logState = () => console.log('next state', store.getState());
+
+const unsubscribeLogger = store.subscribe(logState);
+
+// 取消訂閱時呼叫
+unsubscribeLogger();
+```
+
+### 儲存於 localStorage
+
+使用 store 的 subscribe 函式可以傾聽狀態異動並將異動儲存在 localStorage 的 'redux-store' 鍵之下。建構 store 時可先檢查是否已經有資料儲存於該鍵之下，若有則載入該資料作為初始狀態。只要加上幾行程式碼，我們就可以在瀏覽器保存資料：
+
+```javascript
+const store = createStore(
+  combineReducers({colors, sort}),
+  (localStorage['redux-store'] ?
+     JSON.parse(localStorage['redux-store']) :
+     {}
+  )
+);
+
+store.subscribe(() =>
+  localStorage['redux-store'] = JSON.stringify(store.getState())
+);
+
+store.dispatch({
+  type: 'ADD_COLOR',
+  id: uuid.v4(),
+  title: 'Party Pink',
+  color: '#F142FF',
+  timestamp: new Date().toString()
+});
+```
+
+總而言之，store 儲存與管理 Redux 應用程式的狀態資料，而唯一改變狀態資料的辦法是分發 action 給 store。store 以單一物件保存應用程式的狀態。狀態變化由 reducer 管理。store 以提供選擇性初始狀態資料給 reducer 建構。還有，我們可以用傾聽程序訂閱 (與取消訂閱) 的 store，它們會在完成 action 後被叫用。
+
+## action 的建構程序
+
+action 物件只是 JavaScript 實字，action 建構程序是建構與回傳這些實字的函式。以下列 action 為例：
+
+```javascript
+{
+  type: 'REMOVE_COLOR',
+  id: '3315e1p5-3abl-0p523-30e4-8001l8yf2412'
+}
+
+{
+  type: 'RATE_COLOR',
+  id: '441e0p2-9ab4-0p523-30e4-8001l8yf2412',
+  rating: 5
+}
+```
+
+我們可以對這些 action 型別加上 action 建構程序來簡化產生 action 的邏輯：
+
+```javascript
+import C from './constants';
+
+export const removeColor = id =>
+  ({
+    type: C.REMOVE_COLOR,
+    id
+  });
+
+export const rateColor = (id, rating) =>
+  ({
+    type: C.RATE_COLOR,
+    id,
+    rating
+  });
+```
+
+接下來需要分發 RATE_COLOR 或 REMOVE_COLOR 時，我們可以使用此 action 建構程序並以函式參數傳入必要的資料：
+
+```javascript
+store.dispatch(removeColor('3315e1p5-3abl-0p523-30e4-8001l8yf2412'));
+store.dispatch(rateColor('441e0p2-9ab4-0p523-30e4-8001l8yf2412', 5));
+```
+
+action 的建構程序簡化分發 action 的工作；我們只需要呼叫一個函式並傳入必要的資料。可抽離如何建構 action 的細節，如此可大幅簡化建構 action 的程序。以下舉例：
+
+```javascript
+export const sortColors = sortedBy =>
+  (sortedBy === 'rating') ?
+    ({
+      type: C.SORT_COLORS,
+      sortBy: 'SORTED_BY_RATING'
+    }) :
+    (sortedBy === 'title') ?
+      ({
+        type: C.SORT_COLORS,
+        sortBy: 'SORTED_BY_TITLE'
+      }) :
+      ({
+        type: C.SORT_COLORS,
+        sortBy: 'SORTED_BY_DATE'
+      });
+
+store.dispatch(sortColors('title'));
+```
+
+action 的建構程序可以包含邏輯，也可以抽離建構 action 的細節。以加入一個顏色的 action 為例：
+
+```javascript
+{
+  type: 'ADD_COLOR',
+  id: uuid.v4(),
+  title: 'Party Pink',
+  color: '#F142FF',
+  timestamp: new Date().toString()
+}
+```
+
+現在 ID 與 timestamp 在 action 被分發時產生。將此邏輯移至 action 的建構程序可將細節從分發 action 的程序中抽離：
+
+```javascript
+import C from './constants';
+import {v4} from 'uuid';
+
+export const addColor = (title, color) =>
+  ({
+    type: C.ADD_COLOR,
+    id: v4(),
+    title,
+    color,
+    timestamp: new Date().toString()
+  });
+```
+
+現在建構新顏色更為容易：
+
+```javascript
+store.dispatch(addColor('#F142FF', 'Party Pink'));
+```
+
+action 建構程序的好處是它們提供封裝建構 action 的邏輯的地方。這讓應用程序的除錯更為容易。
+
+我們應該將與後端 API 通訊的邏輯放在 action 的建構程序中。使用 action 建構程序時，我們可以執行請求資料或呼叫 API 等非同步邏輯。Ch12 介紹伺服器會討論這個部分。
+
+### compose
+
+Redux 有個 compose 函式可用於組合不同函式成一個函式。它類似第三章建構的 compose 函式，但更為扎實。它還相反的從右至左組合函式。
+
+若想要得到以逗號分隔的顏色名稱清單，我們可以使用下面這一行程式碼：
+
+```javascript
+store.getState().colors.map(c=>c.title).join(', ')
+```
+
+更函式性做法會將它拆開成較小的函式，並組合成單一函式：
+
+```javascript
+import {compose} from 'redux';
+
+const print = compose(
+  list => console.log(list),
+  titles => titles.join(', '),
+  map => map(c => c.title),
+  colors => colors.map.bind(colors),
+  state => state.colors
+)
+
+print(store.getState());
+```
+
+## 中介軟體
+
+如果你使用過 Express、Sinatra、Django、KOA 或 ASP.NET 等伺服器端框架，則你應該熟悉**中介軟體**的概念 (中介軟體黏合軟體不同層或不同的部分)。
+
+Redux 也是個中介軟體，它在 store 的分發管道中起作用。在 Redux 中，中介軟體如下所示由分發 action 程序中一系列連續執行的函式組成：
+
+![](http_middleware.png)
+
+這些高階函式能讓你在分發 action 與狀態更新的前後插入其他功能。每個中介軟體函式依序執行。
+
+中介軟體的每個部分是一個存取 action 的函式、一個 dispatch 函式，與一個會呼叫 next 的函式。next 使得更新發生，你可以在呼叫 next 之前修改 action。next 之後狀態就被改變。
+
+![](middleware-redux.png)
+
+### store 套用中介軟體
+
