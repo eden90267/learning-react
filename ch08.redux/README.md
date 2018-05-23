@@ -679,3 +679,63 @@ Redux 也是個中介軟體，它在 store 的分發管道中起作用。在 Red
 
 ### store 套用中介軟體
 
+我們在這一節建構一個 storeFactory。factory 是管理建構 store 程序的函式。此例中，factory 會建構具有紀錄與儲存資料的中介軟體之 store。storeFactory 放在帶有建構 store 所需的一個整合函式的檔案中。需要 store 時，我們可以呼叫此函式：
+
+```javascript
+const store = storeFactory(initialData);
+```
+
+建構 store 時，我們建構中介軟體的兩個部分：logger 與 saver。資料透過中介軟體而非 store 方法儲存到 localStorage。
+
+```javascript
+import {createStore, combineReducers, applyMiddleware} from "redux";
+import {colors, sort} from './reducer';
+import stateData from './initialState';
+
+const logger = store => next => action => {
+  let result;
+  console.groupCollapsed("dispatching", action.type);
+  console.log('prev state', store.getState());
+  console.log('action', action);
+  result = next(action);
+  console.log('next state', store.getState());
+  console.groupEnd();
+};
+
+const saver = store => next => action => {
+  let result = next(action);
+  localStorage['redux-store'] = JSON.stringify(store.getState());
+  return result;
+};
+
+const storeFactory = (initialState = stateData) =>
+  applyMiddleware(logger, saver)(createStore)(
+    combineReducers({colors, sort}),
+    (localStorage['redux-store']) ?
+      JSON.parse(localStorage['redux-store']) :
+      initialState
+  );
+
+export default storeFactory;
+```
+
+logger 與 saver 都是中介軟體函式。在 Redux 中，中介軟體被定義為高階函式：它回傳一個函式，被回傳的函式本身會回傳一個函式。最終回傳的函式在分發 action 時被呼叫。呼叫此函式時、，你可以存取 action、store 與負責發送 action 給下一個中介軟體的函式。
+
+相較於直接匯出 store，我們匯出用於建構 store 的 factory 函式。factory 被呼叫時會建構並回傳使用 logger 與 saver 的 store。
+
+
+```javascript
+import storeFactory from './store';
+
+const store = storeFactory(true);
+
+store.dispatch(addColor('#FFFFFF', 'Bright White'));
+store.dispatch(addColor('#00FF00', 'Lawn'));
+store.dispatch(addColor('#0000FF', 'Big Blue'));
+```
+
+從這個 store 分發的每個 action 會在控制台中輸出新的紀錄模組，且新的狀態會儲存在 localStorage。
+
+我們這章看過了 Redux 關鍵功能：state、action、reducer、store、action 建構程序與中介軟體。我們以 Redux 處理應用程式的所有狀態，接下來可以整合它跟使用者介面。
+
+下一章會討論 react-redux 框架，它是連接 Redux 的 store 與 React 的 UI 工具。
