@@ -233,5 +233,99 @@ color 與 colors 的 reducer 都會處理 ADD_COLOR 與 RATE_COLOR，但要記�
 ### color 的 reducer
 
 ```javascript
-
+export const color = (state = {}, action) => {
+  switch (action.type) {
+    case C.ADD_COLOR:
+      return {
+        id: action.id,
+        title: action.title,
+        color: action.color,
+        timestamp: action.timestamp,
+        rating: 0
+      };
+    case C.RATE_COLOR:
+      return (state.id !== action.id) ?
+        state :
+        {
+          ...state,
+          rating: action.rating
+        };
+    default:
+      return state;
+  }
+};
 ```
+
+以下是 color reducer 的 action
+
+- ADD_COLOR
+
+  以 action 的酬載資料建構新的 color
+
+- RATE_COLOR
+
+  以指定的評分回傳新的 color 物件。ES7 的物件展開運算子讓我們能指派目前狀態值給新物件
+
+reducer 一定要回傳某個值。若 reducer 遇到不認識的
+action，將回傳目前的狀態：default 這個 case
+
+
+你會注意到 RATE_COLOR 傳遞 color 的 reducer 沒有用到的 ID，這是因為此 action
+的 ID 是給其他 reducer 找出該 color 用的。一個 action 可以影響多個 reducer。
+
+### colors 的 reducer
+
+color 的 reducer 用於管理狀態樹下 colors 分支，colors 的 reducer
+會用來管理整個 colors 分支：
+
+```javascript
+export const colors = (state = [], action) => {
+  switch (action.type) {
+    case C.ADD_COLOR:
+      return [
+        ...state,
+        color({}, action)
+      ];
+    case C.RATE_COLOR:
+      return state.map(
+        c => color(c, action)
+      );
+    case C.REMOVE_COLOR:
+      return state.filter(
+        c => c.id !== action.id
+      );
+    default:
+      return state;
+  }
+};
+```
+
+- ADD_COLOR
+
+  以現有狀態陣列加上新的 color 物件產生新的陣列。新的顏色是透過傳給 color 的
+  reducer 空白狀態物件與 action 來產生
+
+- RATE_COLOR
+
+  回傳具有目標評分的新顏色陣列。colors 的 reducer
+  從目前狀態陣列找出要評分的顏色，然後使用 color 的 reducer 取得有新評分的顏色物件並取得陣列中的物件
+
+- REMOVE_COLOR
+
+  刪除指定顏色後建立新陣列
+
+colors 的 reducer 涉及顏色的陣列，它使用 color 的 reducer 來聚焦個別的顏色物件。
+
+> Top! 是狀態為不可變物件  
+> 在 reducer
+> 中，我們必須視狀態為不可變物件。雖然有想要使用 `state.push({})` or
+> `state[index].rating`，但應該避免這麼做
+
+> Top! reducer 不能有副作用  
+> reducer
+> 應該可預測，它們只用於管理狀態資料。上面例子中，timestamp 與 ID 都是在將
+> action 傳送給 reducer 前產生。產生隨機資料、呼叫 API 與其他非同步程序都應該在
+> reducer 之外處理。要避免狀態的改變與副作用。
+
+### sort 的 reducer
+
