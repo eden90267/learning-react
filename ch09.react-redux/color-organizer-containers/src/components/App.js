@@ -1,8 +1,8 @@
 import PropTypes from 'prop-types';
 import {Component} from 'react';
-import SortMenu from "./SortMenu";
-import AddColorForm from "./AddColorForm";
-import ColorList from "./ColorList";
+import SortMenu from "./ui/SortMenu";
+import AddColorForm from "./ui/AddColorForm";
+import ColorList from "./ui/ColorList";
 
 import '../../stylesheets/APP.scss'
 import {sortFunction} from "../lib/array-helpers";

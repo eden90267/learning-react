@@ -271,3 +271,138 @@ export default App;
 接下來，你必須設定元件實例的 childContextTypes 並定義你的 context 物件。這類似將 propTypes 或 defaultProps 加到元件實例中，但要讓 context 運作就必須採取這個步驟。
 
 此時，App 元件的子元件可以透過 context 存取 store，它們可直接呼叫 store.getState 與 store.dispatch。最後一個步驟是訂閱 store 並在 store 更新狀態時更新元件樹，這可以透過載入生命期函式完成。我們可在 componentWillMount 訂閱 store 並使用 this.forceUpdate 觸發更新生命期以重新繪製 UI。在 componentWillUnmount 中，我們可以呼叫 unscribe 函式以停止傾聽 store。由於 App 元件本身會觸發 UI 更新，不再需要從 `./index.js` 檔案訂閱 store；我們從將 store 加入 context 的 App 傾聽 store 的異動。
+
+```javascript
+// components/AddColorForm.js
+import PropTypes from 'prop-types';
+import {addColor} from '../actions';
+import '../../stylesheets/AddColorForm.scss';
+
+const AddColorForm = (props, {store}) => {
+
+  let _title, _color;
+
+  const submit = e => {
+    e.preventDefault();
+    store.dispatch(addColor(_title.value, _color.value));
+    _title.value = '';
+    _color.value = '#000000';
+    _title.focus()
+  };
+
+  return (
+    <form className="add-color" onSubmit={submit}>
+      <input ref={input => _title = input}
+             type="text"
+             placeholder="color title..." required/>
+      <input ref={input => _color = input}
+             type="color" required/>
+      <button>ADD</button>
+    </form>
+  )
+};
+
+AddColorForm.contextTypes = {
+  store: PropTypes.object,
+};
+
+export default AddColorForm;
+```
+
+context
+物件以第二個參數傳給無狀態函式性元件。我們可以使用物件解構直接從參數物件取得
+store。為使用此 store，我們必須定義 AddColorForm 實例的
+contextTypes。我們在此告訴 React 這個元件要使用哪一個 context
+變數。這是必要的步驟，沒有它則 store 無法從 context 存取。
+
+讓我們看看在元件類別如何使用 context：
+
+```javascript
+// components/Color.js
+import {Component} from 'react';
+import PropTypes from 'prop-types';
+import StarRating from "./StarRating";
+import '../../stylesheets/Color.scss'
+import {rateColor, removeColor} from "../actions";
+
+class Color extends Component {
+
+  render() {
+    const {id, title, color, rating, timestamp} = this.props;
+    const {store} = this.context;
+    return (
+      <section className="color">
+        <h1>{title}</h1>
+        <button onClick={() => store.dispatch(removeColor(id))}>X</button>
+        <div className="color"
+             style={{backgroundColor: color}}>
+        </div>
+        <div>
+          <StarRating starsSelected={rating} onRate={(rating) => store.dispatch(rateColor(id, rating))}/>
+        </div>
+      </section>
+    )
+  }
+
+}
+
+Color.contextTypes = {
+  store: PropTypes.object
+};
+
+Color.propTypes = {
+  id: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  color: PropTypes.string.isRequired,
+  rating: PropTypes.number
+};
+
+export default Color;
+```
+
+從 context 存取 store
+是減少佔位模板的好辦法，但並非每個應用程式都需要這麼做。Redux 的創造者 Dan
+Abramov 建議不要盲目使用這種模式：
+
+分離容器與展示層通常是個好主意，但不是絕對。只有在真正能夠簡化程式碼的複雜性時再這麼做。
+
+## 展示性與容器元件
+
+前面範例中的元件，都直接與 Redux 的 store 互動以繪製 UI 元素。我們可以解耦 store
+與繪製 UI 的元件，以改善應用程式的架構。
+
+**展示性元件**是只繪製 UI
+元素的元件。它們並不與資料架構緊密耦合，而是以屬性接收資料並透過 callback
+函式屬性發送資料給他們的父元件。它們只在乎 UI
+並能供帶有不同資料的應用程式重複使用。除了 App 元件外，第六章建構的所有元件都是展示性元件。
+
+**容器元件**是連接展示性與資料的元件。我們的容器元件會透過 context 存取 store
+並管理與 store 的互動。它們對應屬性與狀態以及 callback 函式屬性與 store 的
+dispatch 方法以繪製展示性元件。容器元件不在乎 UI 元素；它們用於連接展示性元件與資料。
+
+這種架構有許多好處。展示性元件可重複使用，它們容易替換與測試，並且可以組合成 UI。展示性元件可跨使用不同資料函式庫的瀏覽器應用程式重複使用。
+
+容器元件完全不在乎 UI，它們的目標是連接展示性元件與資料架構。容器元件可跨裝置平台連接原生展示性元件與資料。
+
+第六章建構的 AddColorForm、ColorList、Color、StarRating 與 Star
+元件是展示性元件的例子。它們透過屬性接收資料，發生事件時呼叫 callback 函式屬性。我們已經相當熟悉展示性元件，接下來看看如何使用他們建構容器元件。
+
+App 元件幾乎維持原樣。它還是在 context 中定義 store
+以讓子元件可以存取。相較於繪製 SortMenu、AddColorForm 與 ColorList
+元件，它會繪製這些項目的容器。Menu 連接 SortMenu、NewColor 連接
+AddColorForm，而 Color 連接 ColorList：
+
+```javascript
+render() {
+  return (
+    <div className="app">
+        <Menu/>
+        <NewColor/>
+        <Colors/>
+    </div>
+  )
+}
+```
+
+要連接展示性元件與資料時，你可以將該元件包裝在控制屬性與連接資料的容器中。NewColor、Menu
+與 Colors 等容器可定義在同一個檔案中：
