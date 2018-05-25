@@ -112,4 +112,103 @@ export default App;
 App 元件是根元件。它從屬性取得 store 並明確地向下傳遞給籽元件。store 以屬性傳遞給
 SortMenu、AddColorForm 與 ColorList 元件。
 
-從 App 傳遞出 store，
+從 App 傳遞出 store，我們可以在子元件中使用它。記得我們可以用 store.getState
+讀取狀態，我們可以用 store.dispatch 分發 action 給 store。
+
+```javascript
+// components/AddColorForm.js
+import PropTypes from 'prop-types';
+import {addColor} from '../actions';
+import '../../stylesheets/AddColorForm.scss';
+
+const AddColorForm = ({store}) => {
+
+  let _title, _color;
+
+  const submit = e => {
+    e.preventDefault();
+    store.dispatch(addColor(_title.value, _color.value));
+    _title.value = '';
+    _color.value = '#000000';
+    _title.focus()
+  };
+
+  return (
+    <form className="add-color" onSubmit={submit}>
+      <input ref={input => _title = input}
+             type="text"
+             placeholder="color title..." required/>
+      <input ref={input => _color = input}
+             type="color" required/>
+      <button>ADD</button>
+    </form>
+  )
+};
+
+AddColorForm.propTypes = {
+  store: PropTypes.object,
+};
+
+export default AddColorForm;
+```
+
+ColorList 元件可使用 store 的 getState
+方法取得原來的顏色並加以排序。它也可在發生 RATE_COLOR 與 REMOVE_COLOR 時直接分發：
+
+```javascript
+// components/ColorList.js
+import PropTypes from 'prop-types';
+import Color from "./Color";
+import {sortFunction} from '../lib/array-helpers';
+import {rateColor, removeColor} from "../actions";
+import '../../stylesheets/ColorList.scss';
+
+
+const ColorList = ({store}) => {
+  const {colors, sort} = store.getState();
+  const sortedColors = [...colors].sort(sortFunction(sort));
+  return (
+    <div className="color-list">
+      {(colors.length === 0) ?
+        <p>No Colors Listed. (Add a Color)</p> :
+        sortedColors.map(color =>
+          <Color key={color.id} {...color}
+                 onRate={(rating) =>
+                   store.dispatch(rateColor(color.id, rating))}
+                 onRemove={() =>
+                   store.dispatch(removeColor(color.id))}/>
+        )
+      }
+    </div>
+  );
+};
+
+ColorList.propTypes = {
+  store: PropTypes.object
+};
+
+export default ColorList;
+```
+
+此 store 從元件樹一路向下傳遞至 ColorList
+元件。這種方式在元件樹如顏色管理程式一樣較小時很棒。使用這種方式的缺點是我們必須明確地將
+store
+傳遞給子元件，智表示比其他方式更多的程式碼與麻煩。此外，SortMenu、AddColorForm
+與 ColorList 元件需要這種 store。這讓它們難以於其他應用程式中重複使用。
+
+接下來幾節會討論其他讓元件取得 store 的方式。
+
+## 透過 context 傳遞 store
+
+傳統透過屬性傳遞 store 如同搭火車，要經過中間好幾個縣市。透過 context 間接傳遞
+store 如同搭飛機。飛機從台北到高雄會飛過中間的縣市 —— 不需要道路。
+
+我們可利用 React 的 context
+功能讓我們傳遞變數給元件而不需要以屬性在樹中傳遞。任何子元素可以存取這些 context 變數。
+
+首先要重構 App 元件以保存 context。App 元件也需要傾聽 store 以利於狀態異動觸發
+UI 的更新：
+
+```javascript
+
+```
