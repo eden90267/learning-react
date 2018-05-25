@@ -79,9 +79,12 @@ import storeFactory from './store';
 
 const store = storeFactory();
 
+window.React = React;
+window.store = store;
+
 const render = () =>
   ReactDOM.render(
-    <App stpre={store} />,
+    <App store={store} />,
     document.getElementById('react-container')
   );
 
@@ -210,5 +213,61 @@ store 如同搭飛機。飛機從台北到高雄會飛過中間的縣市 —— 
 UI 的更新：
 
 ```javascript
+import PropTypes from 'prop-types';
+import {Component} from 'react';
+import SortMenu from "./SortMenu";
+import AddColorForm from "./AddColorForm";
+import ColorList from "./ColorList";
 
+import '../../stylesheets/APP.scss'
+import {sortFunction} from "../lib/array-helpers";
+
+class App extends Component {
+
+  getChildContext() {
+    return {
+      store: this.props.store
+    };
+  }
+
+  componentWillMount() {
+    this.unsubscribe = store.subscribe(
+      () => this.forceUpdate()
+    )
+  }
+
+  componentWillUnmount() {
+    this.unsubscribe();
+  }
+
+  render() {
+    const {colors, sort} = store.getState();
+    const sortedColors = [...colors].sort(sortFunction);
+    return (
+      <div className="app">
+        <SortMenu/>
+        <AddColorForm/>
+        <ColorList colors={sortedColors}/>
+      </div>
+    )
+  }
+
+}
+
+App.propTypes = {
+  store: PropTypes.object.isRequired
+};
+
+App.childContextTypes = {
+  store: PropTypes.object.isRequired
+};
+
+
+export default App;
 ```
+
+首先，對元件加入 context 需要使用 getChildContext 生命期函式，它會回傳定義 context 的物件。此例中，我們將 store 加入到 context 中，它可透過屬性存取。
+
+接下來，你必須設定元件實例的 childContextTypes 並定義你的 context 物件。這類似將 propTypes 或 defaultProps 加到元件實例中，但要讓 context 運作就必須採取這個步驟。
+
+此時，App 元件的子元件可以透過 context 存取 store，它們可直接呼叫 store.getState 與 store.dispatch。最後一個步驟是訂閱 store 並在 store 更新狀態時更新元件樹，這可以透過載入生命期函式完成。我們可在 componentWillMount 訂閱 store 並使用 this.forceUpdate 觸發更新生命期以重新繪製 UI。在 componentWillUnmount 中，我們可以呼叫 unscribe 函式以停止傾聽 store。由於 App 元件本身會觸發 UI 更新，不再需要從 `./index.js` 檔案訂閱 store；我們從將 store 加入 context 的 App 傾聽 store 的異動。

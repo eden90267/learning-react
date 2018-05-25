@@ -5,9 +5,12 @@ import storeFactory from './store';
 
 const store = storeFactory();
 
+window.React = React;
+window.store = store;
+
 const render = () =>
   ReactDOM.render(
-    <App stpre={store} />,
+    <App store={store} />,
     document.getElementById('react-container')
   );
 
