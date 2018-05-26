@@ -406,3 +406,205 @@ render() {
 
 要連接展示性元件與資料時，你可以將該元件包裝在控制屬性與連接資料的容器中。NewColor、Menu
 與 Colors 等容器可定義在同一個檔案中：
+
+```javascript
+import PropTypes from 'prop-types';
+import AddColorForm from "./ui/AddColorForm";
+import {addColor, rateColor, removeColor, sortColors} from "../actions";
+import SortMenu from "./ui/SortMenu";
+import ColorList from "./ui/ColorList";
+import {sortFunction} from "../lib/array-helpers";
+
+export const NewColor = (props, {store}) =>
+  <AddColorForm onNewColor={(title, color) =>
+    store.dispatch(addColor(title, color))
+  }/>;
+NewColor.contextTypes = {
+  store: PropTypes.object
+};
+
+export const Menu = (props, {store}) =>
+  <SortMenu sort={store.getState().sort}
+            onSelect={(sortBy) => store.dispatch(sortColors(sortBy))}/>;
+Menu.contextTypes = {
+  store: PropTypes.object
+};
+
+export const Colors = (props, {store}) => {
+  const {colors, sort} = store.getState();
+  const sortedColors = [...colors].sort(sortFunction(sort));
+  return (
+    <ColorList colors={sortedColors}
+               onRemove={id => store.dispatch(removeColor(id))}
+               onRate={(id, rating) => store.dispatch(rateColor(id, rating))}/>
+  );
+};
+Colors.contextTypes = {
+  store: PropTypes.object
+};
+```
+
+所有 Redux 的功能在這個檔案中連結。請注意，action
+建構程序被集中匯入與使用。這是唯一叫用 store.getState 或 store.dispatch 的檔案。
+
+這種分離 UI 元件與連接資料容器的方式通常是個好作法，但對小專案、概念驗證或原型來說就有點過頭。
+
+下一節介紹 React Redux 函式庫。此函式庫可用於快速加入 Redux 的 store 給
+context 並建構容器元件。
+
+## React Redux 的 provider
+
+React Redux 是簡化間接透過 context 傳遞 store 的複雜性函式庫。Redux
+並不要求你使用此函式庫，但使用 React Redux 可減少程式碼的複雜性並幫助你更快的建構應用程式。
+
+```shell
+npm i react-redux --save 
+```
+
+react-redux 提供設定 context 中 store 的 provider 元件。我們可用此 provider
+包裝 React 元素，使該元素的子元素可透過 context 存取 store。
+
+相較在 App 元件中將 store 設定成 context 變數，我們可保持 App 元件的無狀態。
+
+```javascript
+import {Menu, NewColor, Colors} from "./containers";
+import '../../stylesheets/APP.scss'
+
+const App = () =>
+  <div className="app">
+    <Menu/>
+    <NewColor/>
+    <Colors/>
+  </div>;
+
+export default App;
+```
+
+provider 將 store 加入 context 並於 action 被分發時更新 App 元件。此
+provider 預期單一子元件：
+
+```javascript
+import React from 'react';
+import {render} from 'react-dom';
+import App from "./components/App";
+import storeFactory from './store';
+import {Provider} from "react-redux";
+
+const store = storeFactory();
+
+render(
+  <Provider store={store}>
+    <App />
+  </Provider>,
+  document.getElementById('react-container')
+);
+```
+
+此 provider 需要我們以屬性傳遞 store，它將該 store 加到 context 中以讓 App 元件的子元件可以存取到它。可節省時間與簡化程式碼。
+
+使用 provider 後，我們可以在子容器元件中透過 context 存取 store，但 React
+Redux 提供另一種快速建構操作 provider 容器元件的方式：connect 函式。
+
+## React Redux 的 connect
+
+若我們保持 UI 元件為純展示性，可以依靠 React Redux 建構容器元件。React Redux
+透過對應目前 Redux 的 store 狀態與展示性元件的屬性幫助我們建構容器元件。它還對應
+store 的 dispatch 函式與 callback 屬性。這都透過稱為 connect 的高階函式達成。
+
+讓我們使用 connect 建構 Colors 容器元件：
+
+```javascript
+import {addColor, rateColor, removeColor, sortColors} from "../actions";
+import ColorList from "./ui/ColorList";
+import {sortFunction} from "../lib/array-helpers";
+import {connect} from "react-redux";
+
+export const Colors = connect(
+  // mapStateToProps
+  state => ({
+    colors: [...state.colors].sort(sortFunction(state.sort))
+  }),
+  // mapDispatchToProps
+  dispatch => ({
+    onRemove(id) {
+      dispatch(removeColor(id));
+    },
+    onRate(id, rating) {
+      dispatch(rateColor(id, rating));
+    }
+  })
+)(ColorList);
+```
+
+connect 是一個回傳一個回傳一個元件的函式的高階函式。這不是打錯字或繞口令：函式性
+JavaScript 就是這樣。connect 預期兩個參數：mapStateToProps 與
+mapDispatchToProps，兩者都是函式。它回傳一個預期展示性元件並以透過屬性傳送資料的容器將其包裝的函式。
+
+connect 與 provider 一起運作。provider 將 store 加入 context，而 connect
+建構存取 store 的元件。使用 connect 時無須關心 context。
+
+所有容器可在一個檔案內使用 React Redux 的 connect 函式建構：
+
+```javascript
+import AddColorForm from "./ui/AddColorForm";
+import {addColor, rateColor, removeColor, sortColors} from "../actions";
+import SortMenu from "./ui/SortMenu";
+import ColorList from "./ui/ColorList";
+import {sortFunction} from "../lib/array-helpers";
+import {connect} from "react-redux";
+
+export const NewColor = connect(
+  // mapStateToProps
+  null,
+  // mapDispatchToProps
+  dispatch => ({
+    onNewColor(title, color) {
+      dispatch(addColor(title, color));
+    }
+  })
+)(AddColorForm);
+
+export const Menu = connect(
+  // mapStateToProps
+  state => ({
+    sort: state.sort
+  }),
+  // mapDispatchToProps
+  dispatch => ({
+    onSelect(sortBy) {
+      dispatch(sortColors(sortBy));
+    }
+  })
+)(SortMenu);
+
+
+export const Colors = connect(
+  // mapStateToProps
+  state => ({
+    colors: [...state.colors].sort(sortFunction(state.sort))
+  }),
+  // mapDispatchToProps
+  dispatch => ({
+    onRemove(id) {
+      dispatch(removeColor(id));
+    },
+    onRate(id, rating) {
+      dispatch(rateColor(id, rating));
+    }
+  })
+)(ColorList);
+```
+
+connect 函式連接 Redux
+與純展示性元件。第一個參數是個對應狀態變數與屬性的函式，第二個參數是發生事件時分發
+action 的函式。若只想要對應 callback 函式屬性與 dispatch，你可以如 NewColor
+容器的定義以 null 作為第一個參數。
+
+這一章討論連接 Redux 與 React 的各種方式。
+
+- 我們明確地以屬性在元件樹中向下傳遞 store
+- 間接的將 store 透過 context 直接傳遞給元件
+- 透過容器元件解耦 store 的功能與展示層
+- 使用 react-redux 透過 context 與容器元件連接 store 與展示層
+
+下一章討論如何撰寫這個應用程式各個部分的單元測試。
