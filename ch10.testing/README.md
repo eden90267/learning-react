@@ -21,7 +21,7 @@ React 語法。
 全域安裝 eslint。
 
 ```shell
-npm i eslint -g
+$ npm i eslint -g
 ```
 
 使用 ESLint
@@ -31,7 +31,7 @@ JSON 或 YAML 格式。YAML 是比較讓人看得懂的資料序列格式。
 ESLint 有個工具可幫助我們設定組態。有些公司製作 ESLint 組態檔案可供我們使用，或也可以自行製作。
 
 ```shell
-eslint --init
+$ eslint --init
 ? How would you like to configure ESLint? Answer questions about your style
 ? Are you using ECMAScript 6 features? Yes
 ? Are you using ES6 modules? Yes
@@ -72,9 +72,9 @@ switch (gnar) {
 ```
 
 ```shell
-./node_modules/.bin/eslint sample.js
+$ ./node_modules/.bin/eslint sample.js
 
-/Users/eden.liu/Desktop/myProjects/learning-react/ch10.testing/color-organizer/src/sample.js
+/Users/eden.liu/Desktop/myProjects/learning-react/ch10.testing/color-organizer/sample.js
   1:14  error  Strings must use singlequote                  quotes
   1:22  error  Extra semicolon                               semi
   3:7   error  'info' is assigned a value but never used     no-unused-vars
@@ -197,7 +197,7 @@ reducer 是根據輸入參數計算與回傳結果的純函式。我們可在測
 撰寫測試前需要安裝測試框架，你可以用任何 JavaScript 測試框架撰寫 React 與 Redux 的測試。我們會使用 Jest，它是依 React 設計的 JavaScript 測試框架：
 
 ```shell
-npm i jest -g
+$ npm i jest -g
 ```
 
 這樣你可以在任何目錄下執行 jest 命令以執行測試。
@@ -205,7 +205,7 @@ npm i jest -g
 由於我們使用新的 JavaScript 與 React，所以需要轉譯程式碼與測試。安裝 babel-jest 套件以供執行測試：
 
 ```shell
-npm i --save-dev babel-jest
+$ npm i --save-dev babel-jest
 ```
 
 安裝 babel-jest 後，執行測試前程式碼與測試會以 Babel 轉譯。這需要一個 .babelrc 檔案，但專案的根目錄應該已經有一個 (create-react-app)
@@ -233,7 +233,7 @@ describe('color Reducer', () => {
 以 jest 命令執行此測試。Jest 會執行並報告它略過兩個未決測試：
 
 ```shell
-jest
+$ jest
 
 Test Suites: 1 passed, 1 total
 Tests:       2 passed, 2 total
@@ -243,5 +243,335 @@ Ran all test suites.
 ```
 
 > Top! 測試檔案  
-> Jest 會執行 `__tests__` 目錄下找到的所有測試與專案中副檔名為 .test.js 的 JavaScript 檔案。有些開發者偏好將測試直接放在受測檔案旁邊，而其他人偏好將測試集中在一個目錄下
+> Jest 會執行 `__tests__` 目錄下找到的所有測試與專案中副檔名為 .test.js 的 JavaScript 檔案。有些開發者偏好將測試直接放在受測檔案旁邊，而其他人偏好將測試集中在一個目錄下。
 
+現在可以開始撰寫這些測試。color 的 reducer 函式是受測系統 (system under
+test，SUT)。我們匯入此函式、傳送一個 action，並檢驗結果。
+
+Jest 會以 expect 函式回傳的 “檢查程序” 檢查回傳結果。要測試的 color 的
+reducer，我們會使用 .toEqual 這個檢查程序檢驗結果是否與傳給 .toEqual 的參數相符：
+
+```javascript
+import C from "../../../src/constants";
+import {color} from "../../../src/store/reducer";
+
+describe('color Reducer', () => {
+  it('ADD_COLOR success', () => {
+    const state = {};
+    const action = {
+      type: C.ADD_COLOR,
+      id: 0,
+      title: 'Test Teal',
+      color: '#90C3D4',
+      timestamp: new Date().toString()
+    };
+    const results = color(state, action);
+    expect(results)
+      .toEqual({
+        id: 0,
+        title: 'Test Teal',
+        color: '#90C3D4',
+        timestamp: new Date().toString(),
+        rating: 0
+      });
+  });
+  it('RATE_COLOR success', () => {
+    const state = {
+      id: 0,
+      title: 'Test Teal',
+      color: '#90C3D4',
+      timestamp: 'Sat Mar 12 2016 16:12:09 GMT-0800 (PST)',
+      rating: undefined
+    };
+    const action = {
+      type: C.RATE_COLOR,
+      id: 0,
+      rating: 3
+    };
+    const results = color(state, action);
+    expect(results)
+      .toEqual({
+        id: 0,
+        title: 'Test Teal',
+        color: '#90C3D4',
+        timestamp: 'Sat Mar 12 2016 16:12:09 GMT-0800 (PST)',
+        rating: 3
+      })
+  });
+});
+````
+
+寫出測試後，假設我們還沒有寫成 color 的 reducer 程式碼，則需要空函式。我們可以在
+`/src/store/reducers.js` 檔案中加上 color 函式。這能讓我們的測試找到空的
+reducer 並匯入：
+
+```javascript
+import C from "../constants";
+
+export const color = (state={}, action) => {
+  return state;
+}
+```
+
+讓我們執行測試並看它失敗。Jest 會提供失敗的細節，包括堆疊紀錄：
+
+```shell
+$ jest
+
+ FAIL  __tests__/store/reducers/color.test.js
+  color Reducer
+    ✕ ADD_COLOR success (17ms)
+    ✕ RATE_COLOR success (3ms)
+
+  ● color Reducer › ADD_COLOR success
+
+    expect(received).toEqual(expected)
+
+    Expected value to equal:
+      {"color": "#90C3D4", "id": 0, "rating": 0, "timestamp": "Tue May 29 2018 23:28:20 GMT+0800 (CST)", "title": "Test Teal"}
+    Received:
+      {}
+
+    Difference:
+
+    - Expected
+    + Received
+
+    - Object {
+    -   "color": "#90C3D4",
+    -   "id": 0,
+    -   "rating": 0,
+    -   "timestamp": "Tue May 29 2018 23:28:20 GMT+0800 (CST)",
+    -   "title": "Test Teal",
+    - }
+    + Object {}
+
+      14 |     const results = color(state, action);
+      15 |     expect(results)
+    > 16 |       .toEqual({
+         |        ^
+      17 |         id: 0,
+      18 |         title: 'Test Teal',
+      19 |         color: '#90C3D4',
+
+      at Object.<anonymous> (__tests__/store/reducers/color.test.js:16:8)
+
+  ● color Reducer › RATE_COLOR success
+
+    expect(received).toEqual(expected)
+
+    Expected value to equal:
+      {"color": "#90C3D4", "id": 0, "rating": 3, "timestamp": "Sat Mar 12 2016 16:12:09 GMT-0800 (PST)", "title": "Test Teal"}
+    Received:
+      {"color": "#90C3D4", "id": 0, "rating": undefined, "timestamp": "Sat Mar 12 2016 16:12:09 GMT-0800 (PST)", "title": "Test Teal"}
+
+    Difference:
+
+    - Expected
+    + Received
+
+      Object {
+        "color": "#90C3D4",
+        "id": 0,
+    -   "rating": 3,
+    +   "rating": undefined,
+        "timestamp": "Sat Mar 12 2016 16:12:09 GMT-0800 (PST)",
+        "title": "Test Teal",
+      }
+
+      37 |     const results = color(state, action);
+      38 |     expect(results)
+    > 39 |       .toEqual({
+         |        ^
+      40 |         id: 0,
+      41 |         title: 'Test Teal',
+      42 |         color: '#90C3D4',
+
+      at Object.<anonymous> (__tests__/store/reducers/color.test.js:39:8)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 2 total
+Snapshots:   0 total
+Time:        2.469s
+Ran all test suites.
+```
+
+花時間撰寫測試與執行測試來觀察它們失敗以顯示測試如預期運行。失敗代表待辦事項，我們目標是讓雙方面成功通過。
+
+撰寫通過測試所需的最少程式碼：
+
+```javascript
+// src/store/reducers.js
+import C from '../constants';
+
+export const color = (state = {}, action) => {
+  switch (action.type) {
+    case C.ADD_COLOR:
+      return {
+        id: action.id,
+        title: action.title,
+        color: action.color,
+        timestamp: action.timestamp,
+        rating: 0
+      };
+    case C.RATE_COLOR:
+      state.rating = action.rating;
+      return state;
+    default:
+      return state;
+  }
+};
+```
+
+接下來執行 jest 命令且測試應該成功：
+
+```shell
+$ jest
+
+ PASS  __tests__/store/reducers/color.test.js
+  color Reducer
+    ✓ ADD_COLOR success (6ms)
+    ✓ RATE_COLOR success (1ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        1.368s, estimated 2s
+Ran all test suites.
+```
+
+成功，但還沒結束。接下來重構測試與程式碼。檢視 reducer 的 RATE_COLOR 的 case：
+
+```javascript
+case C.RATE_COLOR:
+  state.rating = action.rating;
+  return state;
+```
+
+仔細觀察，此程式碼有問題。狀態應該是不可變的，但我們改變了狀態物件的 rating 值。測試能夠通過是因為我們沒有確保狀態物件不可變。
+
+deep-freeze 可幫助我們確保狀態與 action 物件維持不可變：
+
+```shell
+$ npm i deep-freeze --save-dev
+```
+
+呼叫 color 的 reducer 時，我們會凍結狀態與 action 物件。兩物件應該不可變，若測試改變物件則凍結它們導致錯誤：
+
+```javascript
+import C from "../../../src/constants";
+import {color} from "../../../src/store/reducer";
+import deepFreeze from 'deep-freeze';
+
+describe('color Reducer', () => {
+  it('ADD_COLOR success', () => {
+    const state = {};
+    const action = {
+      type: C.ADD_COLOR,
+      id: 0,
+      title: 'Test Teal',
+      color: '#90C3D4',
+      timestamp: new Date().toString()
+    };
+    deepFreeze(state);
+    deepFreeze(action);
+    expect(color(state, action))
+      .toEqual({
+        id: 0,
+        title: 'Test Teal',
+        color: '#90C3D4',
+        timestamp: new Date().toString(),
+        rating: 0
+      });
+  });
+  it('RATE_COLOR success', () => {
+    const state = {
+      id: 0,
+      title: 'Test Teal',
+      color: '#90C3D4',
+      timestamp: 'Sat Mar 12 2016 16:12:09 GMT-0800 (PST)',
+      rating: undefined
+    };
+    const action = {
+      type: C.RATE_COLOR,
+      id: 0,
+      rating: 3
+    };
+    deepFreeze(state);
+    deepFreeze(action);
+    expect(color(state, action))
+      .toEqual({
+        id: 0,
+        title: 'Test Teal',
+        color: '#90C3D4',
+        timestamp: 'Sat Mar 12 2016 16:12:09 GMT-0800 (PST)',
+        rating: 3
+      })
+  });
+});
+```
+
+現在來觀察測試的失敗，因為顏色評分會改變狀態：
+
+```shell
+$ jest
+
+ FAIL  __tests__/store/reducers/color.test.js
+  color Reducer
+    ✓ ADD_COLOR success (7ms)
+    ✕ RATE_COLOR success (11ms)
+
+  ● color Reducer › RATE_COLOR success
+
+    TypeError: Cannot assign to read only property 'rating' of object '#<Object>'
+
+      12 |       };
+      13 |     case C.RATE_COLOR:
+    > 14 |       state.rating = action.rating;
+         |       ^
+      15 |       return state;
+      16 |     default:
+      17 |       return state;
+
+      at color (src/store/reducer.js:14:7)
+      at Object.<anonymous> (__tests__/store/reducers/color.test.js:41:12)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 passed, 2 total
+Snapshots:   0 total
+Time:        1.703s, estimated 3s
+Ran all test suites.
+```
+
+讓我們改變 color 的 reducer 以讓測試成功：
+
+```javascript
+case C.RATE_COLOR:
+  return {
+    ...state,
+    rating: action.rating
+  };
+```
+
+現在我們沒動到狀態，兩者都能通過：
+
+```shell
+$ jest
+
+ PASS  __tests__/store/reducers/color.test.js
+  color Reducer
+    ✓ ADD_COLOR success (6ms)
+    ✓ RATE_COLOR success
+
+Test Suites: 1 passed, 1 total
+Tests:       2 passed, 2 total
+Snapshots:   0 total
+Time:        1.675s, estimated 2s
+Ran all test suites.
+```
+
+此程序代表典型的 TDD
+循環。我們撰寫測試、撰寫通過測試的程式碼、重構程式碼與測試。這種方式對 JavaScript
+開發，特別是 Redux 很有效率。
+
+### 測試 store
