@@ -13,7 +13,8 @@ plugins:
 rules:
   indent:
     - error
-    - 4
+    - 2
+    - SwitchCase: 1
   linebreak-style:
     - error
     - unix
@@ -23,3 +24,7 @@ rules:
   semi:
     - error
     - never
+  no-console: 0
+globals:
+  __filename: true
+  __dirname: true

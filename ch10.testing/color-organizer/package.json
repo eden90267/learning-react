@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack --progress",
     "prestart": "npm run build",
-    "start": "opener http://localhost:3000 & httpster -p 3000 -d ./dist"
+    "start": "opener http://localhost:3000 & httpster -p 3000 -d ./dist",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "babel-core": "^6.26.3",
+    "babel-jest": "^23.0.1",
     "babel-loader": "^7.1.4",
     "babel-preset-env": "^1.7.0",
     "babel-preset-react": "^6.24.1",
