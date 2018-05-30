@@ -804,6 +804,59 @@ const Star = ({selected = false, onClick = f => f}) =>
 
 讓我們使用 Enzyme 撰寫 Star 元件的測試。我們會使用 Enzyme 繪製該元件並找出繪製出的 Star 元件中的特定 DOM 元素。我們可使用 shallow 方法繪製一層元件：
 
-```javascript
+> 筆者註：  
+> react@15 請依照此步驟安裝相關 lib 跟 setup file 設定：
+> [http://airbnb.io/enzyme/docs/installation/react-15.html](http://airbnb.io/enzyme/docs/installation/react-15.html)
 
+```javascript
+import {shallow} from 'enzyme';
+import Star from "../../../src/components/ui/Star";
+
+describe('<Star /> UI Component', () => {
+
+  it('renders default star', function () {
+    expect(
+      shallow(<Star/>)
+        .find('div.star')
+        .length
+    ).toBe(1);
+  });
+
+  it('renders selected stars', function () {
+    expect(
+      shallow(<Star selected={true}/>)
+        .find('div.selected.star')
+        .length
+    ).toBe(1)
+  });
+
+});
 ```
+
+Enzyme 有類似 jQuery 的函式。我們可使用 find 方法以 selector 語法查詢產生出的 DOM。
+
+接下來，我們需要測試點擊事件。Enzyme
+有工具可讓我們模擬事件並檢驗事件是否發生。對此測試需要一個檢驗 onClick
+屬性是否正確的函式。我們需要一個模擬函式，而 Jest 有提供：
+
+```javascript
+it('invokes onClick', () => {
+
+  const _click = jest.fn();
+
+  shallow(<Star onClick={_click}/>)
+    .find('div.star')
+    .simulate('click')
+
+  expect(_click).toBeCalled()
+
+});
+```
+
+- `_click` 模擬函式以 jest.fn 建構
+- Enzyme 的 simulate 方法模擬該元素的點擊事件
+- toBeCalled 可用於檢驗模擬函式是否被叫用
+
+Enzyme 可幫助我們繪製元件、找到繪製出的 DOM 元素或其他元件，並與其互動。
+
+### 模擬元件
