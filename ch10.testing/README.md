@@ -575,3 +575,235 @@ Ran all test suites.
 開發，特別是 Redux 很有效率。
 
 ### 測試 store
+
+若 store 可運行，你的應用程式很有可能可運行。測試 store 的程序涉及以 reducer 建構 store、插入想定狀態、分發 action，並檢驗結果。
+
+測試 store 你可以整合 action 建構程序，並同時測試 store 與 action 建構程序。
+
+第八章 storeFactory，它是顏色管理應用程式中管理 store 建構的函式：
+
+```javascript
+import {createStore, combineReducers, applyMiddleware} from "redux";
+import {colors, sort} from './reducer';
+import stateData from './initialState';
+
+const logger = store => next => action => {
+  let result;
+  console.groupCollapsed("dispatching", action.type);
+  console.log('prev state', store.getState());
+  console.log('action', action);
+  result = next(action);
+  console.log('next state', store.getState());
+  console.groupEnd();
+  return result;
+};
+
+const saver = store => next => action => {
+  let result = next(action);
+  localStorage['redux-store'] = JSON.stringify(store.getState());
+  return result;
+};
+
+const storeFactory = (initialState = stateData) =>
+  applyMiddleware(logger, saver)(createStore)(
+    combineReducers({colors, sort}),
+    (localStorage['redux-store']) ?
+      JSON.parse(localStorage['redux-store']) :
+      initialState
+  );
+
+export default storeFactory;
+```
+
+此模組匯出用於建構 store 的函式，它抽離建構 store 的細節。此檔案帶有 reducer、中介軟體，與建構 store 的預設狀態。以 storeFactory 建構 store 時可以選擇性的傳入初始狀態，這樣可幫助我們測試 store。
+
+Jest 具有設定與分拆功能能在測試前後執行一些程式。
+
+- beforeAll 與 afterAll 在執行測試組前後執行。
+- beforeEach 與 afterEach 在 it 陳述執行前後呼叫
+
+> Top! 設定與分拆  
+> 撰寫測試時對每個測試只容許一個斷言是個好作法。這表示你想要在單一 it 陳述中避免多次呼叫 expect。這種方式讓每個斷言單獨檢驗，測試失敗時比較容易指出問題點。  
+> Jest 的設定與分拆功能能幫助你遵循這種做法。在 beforeAll 陳述中執行測試程式碼並檢驗多個 it 陳述的結果
+
+接下來看看如何測試 store 與 addColor 這個action 建構程序。
+
+```javascript
+import storeFactory from "../src/store";
+import {addColor} from "../src/actions";
+
+describe('addColor', function () {
+
+  let store
+  const colors = [
+    {
+      id: "8658c1d0-9eda-4a90-95e1-8001e8eb6036",
+      title: "lawn",
+      color: "#44ef37",
+      timestamp: "Mon Apr 11 2016 12:54:19 GMT-0700 (PDT)",
+      rating: 4
+    },
+    {
+      id: "f9005b4e-975e-433d-a646-79df172e1dbb",
+      title: "ocean blue",
+      color: "#0061ff",
+      timestamp: "Mon Apr 11 2016 12:54:31 GMT-0700 (PDT)",
+      rating: 2
+    },
+    {
+      id: "58d9caee-6ea6-4d7b-9984-65b145031979",
+      title: "tomato",
+      color: "#ff4b47",
+      timestamp: "Mon Apr 11 2016 12:54:43 GMT-0700 (PDT)",
+      rating: 0
+    }
+  ];
+
+  beforeAll(() => {
+    store = storeFactory({colors});
+    store.dispatch(addColor("Dark Blue", "#000033"));
+  });
+
+  it('should add a new color', function () {
+    expect(store.getState().colors.length).toBe(4);
+  });
+
+  it('should add a unique guid id', function () {
+    expect(store.getState().colors[3].id.length).toBe(36);
+  });
+
+  it('should set the rating to 0', function () {
+    expect(store.getState().colors[3].rating).toBe(0);
+  });
+
+  it('should set timestamp', function () {
+    expect(store.getState().colors[3].timestamp).toBeDefined();
+  });
+});
+```
+
+這裡使用兩個新的檢查程序：
+
+- `.toBe`：使用 `===` 運算子比較結果，可用於比較數字或字串等原始型別，`.toEqual` 用於深度比較物件
+- `.toBeDefined`：用於檢查變數或韓式是否存在
+
+這些測試碼檢查 store 是否能使用 action 建構程序加入新顏色。
+
+## 測試 React 元件
+
+React 元件提供 React 於建構與管理 DOM 的更新時依循的指令。我們可透過繪製與檢查產生的 DOM 檢查這些元件。
+
+我們不在瀏覽器中執行測試；我們從終端機與 Node.js 執行它們。Node.js 沒有瀏覽器的 DOM API。Jest 利用 jsdom 這個 npm 套件在 Node.js 中模擬瀏覽器環境，這是測試 React 元件的基礎。
+
+### 設定 Jest 環境
+
+Jest 提供執行測試前執行腳本的功能以讓我們設定測試時使用的全域變數。
+
+舉例，若想要將 React 與一些顏色加入全域飯圍供測試存取，我們可以建構：
+
+```javascript
+// __tests__/global.js
+import React from 'react';
+import deepFreeze from 'deep-freeze';
+
+global.React = React;
+global._testColors = deepFreeze([
+  {
+    id: "8658c1d0-9eda-4a90-95e1-8001e8eb6036",
+    title: "lawn",
+    color: "#44ef37",
+    timestamp: "Sun Apr 10 2016 12:54:19 GMT-0700 (PDT)",
+    rating: 4
+  },
+  {
+    id: "f9005b4e-975e-433d-a646-79df172e1dbb",
+    title: "ocean blue",
+    color: "#0061ff",
+    timestamp: "Mon Apr 11 2016 12:54:31 GMT-0700 (PDT)",
+    rating: 2
+  },
+  {
+    id: "58d9caee-6ea6-4d7b-9984-65b145031979",
+    title: "tomato",
+    color: "#ff4b47",
+    timestamp: "Fri Apr 15 2016 12:54:43 GMT-0700 (PDT)",
+    rating: 0
+  }
+]);
+```
+
+此檔案將 React 與一些不可變測試加到全域範圍中。接下來，我們必須告訴 Jest 在執行測試前執行這個檔案。我們可以將 setupFiles 欄加入 package.json 中的 jest 節點：
+
+```json
+"jest": {
+  "setupFiles": ["./__tests__/global.js"],
+  "modulePathIgnorePatterns": ["global.js"]
+}
+```
+
+setupFiles 欄提供測試前 Jest 應該執行以設定全域環境的檔案陣列。modulePathIgnorePatterns 欄告訴 Jest 執行測試時忽略 global.js 檔案，因為它沒有測試組；它是設定檔案。此欄為必要的是因為我們偏好將 global.js 檔案加入 `__tests__` 目錄，雖然它未帶有任何測試。
+
+#### 略過 SCSS 匯入
+
+若直接匯入 SCSS (或 CSS 與 SASS) 檔案到元件中，測試時必須略過這些匯入，若沒有略過它們，它們會導致測試失敗。
+
+這些檔案可透過匯入 .css、.scss 或 .less 檔案時回傳空字串的模組對應程序略過。讓我們安裝 jest-css-modules：
+
+```shell
+$ npm i jest-css-modules --save-dev
+```
+
+安裝此套件後，我們必須告訴 Jest 使用此模組替換 .scss 的匯入。我們必須將 moduleNameMapper 欄加入：
+
+```json
+"jest": {
+  ...
+  "moduleNameMapper": {
+    "\\.(scss)$": "<rootDir>/node_modules/jest-css-modules"
+  }
+}
+```
+
+它告訴 Jest 使用 jest-css-modules 模組替換結尾為 .scss 的匯入。將這幾行加到 package.json 檔案可防止測試因匯入 .scss 而出問題。
+
+### Enzyme
+
+我們差不多可以開始測試 React 元件了。開始撰寫我們的第一個元件測試前只要在安裝兩個 npm 模組：
+
+```shell
+$ npm i enzyme react-addons-test-utils --save-dev
+```
+
+Enzyme：是 Airbnb 設計的 React 元件測試工具。Enzyme 需要 react-addons-test-utils，它是測試過程中繪製元件以及與元件互動的一組工具。此外，還需要 react-dom，但我們假設你已經安裝。
+
+Enzyme 讓繪製元件與遍歷繪製輸出更簡單。Enzyme 不是測試或斷言框架，它處理繪製 React 元件的測試工作並提供必要的工具供遍歷子元素、檢驗屬性、檢驗狀態、模擬事件與查詢 DOM。
+
+Enzyme 有三個主要的繪製方法：
+
+- **shallow**
+
+  shallow 繪製一層元件供單元測試用
+
+- **mount**
+
+  mount 使用瀏覽器的 DOM 繪製元件，必須完整測試元件生命期與屬性或子元素狀態時使用
+
+- **render**
+
+  render 繪製靜態 HTML 與元件。你可以使用 render 檢驗元件是否回傳正確的 HTML
+
+以 Star 元件為例：
+
+```javascript
+const Star = ({selected = false, onClick = f => f}) =>
+  <div className={(selected) ? 'star selected' : 'star'}
+       onClick={onClick}/>;
+```
+
+它應該繪製出一個 div 元素且 className 為選定的屬性。它還應該回應點擊事件。
+
+讓我們使用 Enzyme 撰寫 Star 元件的測試。我們會使用 Enzyme 繪製該元件並找出繪製出的 Star 元件中的特定 DOM 元素。我們可使用 shallow 方法繪製一層元件：
+
+```javascript
+
+```

@@ -10,6 +10,7 @@ const logger = store => next => action => {
   result = next(action);
   console.log('next state', store.getState());
   console.groupEnd();
+  return result;
 };
 
 const saver = store => next => action => {

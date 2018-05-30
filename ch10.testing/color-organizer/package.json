@@ -4,10 +4,15 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "lint": "eslint .",
     "build": "webpack --progress",
     "prestart": "npm run build",
-    "start": "opener http://localhost:3000 & httpster -p 3000 -d ./dist",
-    "lint": "eslint ."
+    "start": "httpster -p 3000 -d ./dist",
+    "watch:test": "jest --watch",
+    "test": "jest",
+    "posttest": "npm run lint",
+    "coverage": "opener ./coverage/lcov-report/index.html",
+    "dev": "opener http://localhost:3000 & webpack-dev-server"
   },
   "keywords": [],
   "author": "",
@@ -30,14 +35,31 @@
     "babel-preset-react": "^6.24.1",
     "babel-preset-stage-0": "^6.24.1",
     "css-loader": "^0.28.11",
+    "cssnano": "^3.10.0",
     "deep-freeze": "0.0.1",
+    "enzyme": "^3.3.0",
     "eslint": "^4.19.1",
     "eslint-plugin-react": "^7.8.2",
+    "jest-css-modules": "^1.1.0",
     "node-sass": "^4.9.0",
     "opener": "^1.4.3",
+    "optimize-css-assets-webpack-plugin": "^3.2.0",
     "postcss-loader": "^2.1.5",
+    "react-addons-test-utils": "^15.6.2",
     "sass-loader": "^7.0.1",
     "style-loader": "^0.21.0",
-    "webpack": "^3.11.0"
+    "webpack": "^3.11.0",
+    "webpack-dev-server": "^2.11.2"
+  },
+  "jest": {
+    "setupFiles": [
+      "./__tests__/global.js"
+    ],
+    "modulePathIgnorePatterns": [
+      "global.js"
+    ],
+    "moduleNameMapper": {
+      "\\.(scss)$": "<rootDir>/node_modules/jest-css-modules"
+    }
   }
 }
