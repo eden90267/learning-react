@@ -1,6 +1,6 @@
 import {createStore, combineReducers, applyMiddleware} from "redux";
 import {colors, sort} from './reducer';
-import stateData from './initialState';
+import stateData from '../../initialState';
 
 const logger = store => next => action => {
   let result;

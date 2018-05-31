@@ -860,3 +860,796 @@ it('invokes onClick', () => {
 Enzyme 可幫助我們繪製元件、找到繪製出的 DOM 元素或其他元件，並與其互動。
 
 ### 模擬元件
+
+前面的測試引進模擬的概念：我們使用模擬函式測試 Star 元件。Jest 有工具幫助我們建構與插入各種模擬以撰寫更好的測試。模擬是重要的測試技巧，能夠幫助我們聚焦單元測試。模擬是測試時取代真正物件的物件。
+
+在測試中，模擬物件看起來像真正的物件。
+
+模擬的目的是讓你專注於受測元件或物件等 SUT。模擬用於取代 SUT 依靠的物件、元件或函式，這樣可以讓你檢驗 SUT 正確運作而無需動到相依內容。模擬讓你獨立與其他元件外分離、建構與測試功能。
+
+#### 測試 HOC
+
+模擬的用處之一是測試高階元件。HOC 透過屬性添加元件功能。我們可以建構模擬元件並傳給 HOC，以檢驗 HOC 添加了模擬的屬性。
+
+以 Ch07 開發的 Expandable 的測試。為設定此 HOC 的測試，我們必須建構模擬元件並傳送給此 HOC。MockComponent 是用於取代真正元件的特技替身。
+
+```javascript
+import {mount} from 'enzyme';
+import Expandable from '../../../src/components/HOC/Expandable';
+
+describe('Expandable Higher-Order Component', () => {
+
+  let props,
+    wrapper,
+    ComposedComponent,
+    MockComponent = ({collapsed, expandCollapse}) =>
+      <div onClick={expandCollapse}>
+        {(collapsed) ? 'collapsed' : 'expanded'}
+      </div>;
+
+  describe('Rendering UI', function () {
+
+  });
+
+  describe('Expand Collapse Functionality', function () {
+
+  });
+
+});
+```
+
+MockComponent 只是就地開發的無狀態函式性元件，它回傳一個 div 與 onClick 處理程序供 expandCollapse 函式進行測試。展開或收起狀態也會在模擬元件中顯示。此元件只會用在這個測試中。
+
+SUT 是 Expandable 這個 HOC。測試前，我們會以模擬呼叫 HOC 並檢查回傳元件，以確認套用了正確的屬性。
+
+mount 韓式會取代 shallow 函式以檢查回傳元件的屬性與狀態：
+
+```javascript
+describe('Rendering UI', () => {
+
+  beforeAll(() => {
+    ComposedComponent = Expandable(MockComponent);
+    wrapper = mount(<ComposedComponent foo="foo" gnar="gnar"/>);
+    props = wrapper.find(MockComponent).props();
+  });
+
+  it('starts off collapsed', () => {
+    expect(props.collapsed).toBe(true);
+  });
+
+  it('passes the expandCollapse function to composed component', () => {
+    expect(typeof props.expandCollapse)
+      .toBe('function')
+  });
+
+  it('passes additional foo prop to composed component', () => {
+    expect(props.foo)
+      .toBe('foo');
+  });
+
+  it('passes additional gnar prop to composed component', () => {
+    expect(props.gnar)
+      .toBe('gnar');
+  });
+
+});
+```
+
+使用 HOC 組合元件後，我們可以載入它並直接檢查屬性物件以檢驗組合元件有加入正確屬性。
+
+接下來，讓我們檢驗 collapsed 屬性的改變：
+
+```javascript
+describe('Expand Collapse Functionality', () => {
+  let instance
+
+  beforeAll(() => {
+    ComposedComponent = Expandable(MockComponent);
+    wrapper = mount(<ComposedComponent collapsed={false}/>)
+    instance = wrapper.instance();
+  });
+
+  it('renders the MockComponent as the root element', () => {
+    expect(wrapper.first().is(MockComponent)); // first 取第一個子元素
+  });
+
+  it('starts off expanded', function () {
+    expect(instance.state.collapsed).toBe(false);
+  });
+
+  it('toggles the collapsed state', () => {
+    instance.expandCollapse();
+    expect(instance.state.collapsed).toBe(true);
+  });
+
+});
+```
+
+載入元件後，我們可以使用 wrapper.instance 收集繪製實例的資訊。
+
+wrapper 還有一些遍歷 DOM 的方法：
+
+- wrapper.first 選取第一個子元素
+
+HOC 適用模擬，因為插入模擬的程序很簡單：將它以參數傳送給 HOC。模擬個別元件的概念也一樣，但插入程序有點技巧。
+
+#### Jest 的模擬
+
+Jest 能讓你插入模擬到任何元件而不只是 HOC。使用 Jest 時，你可以模擬任何 SUT 匯入的模組。模擬能讓我們專注於 SUT 的測試而非其他可能導致問題的模組。
+
+以 ColorList 元件為例，它匯入 Color 元件：
+
+```javascript
+import PropTypes from 'prop-types';
+import Color from "./Color";
+import '../../../stylesheets/ColorList.scss';
+
+
+const ColorList = ({colors = [], onRemove = f => f, onRate = f => f}) => {
+  return (
+    <div className="color-list">
+      {(colors.length === 0) ?
+        <p>No Colors Listed. (Add a Color)</p> :
+        colors.map(color =>
+          <Color key={color.id}
+                 {...color}
+                 onRemove={() => onRemove(color.id)}
+                 onRate={(rating) => onRate(color.id, rating)}/>
+        )
+      }
+    </div>
+  );
+};
+
+Color.propTypes = {
+  colors: PropTypes.array
+};
+
+export default ColorList;
+```
+
+我們想要確保 ColorList 元件功能正常。我們不在乎 Color 元件；它有自己的單元測試。我們可以模擬取代 Color 元件：
+
+```javascript
+import {mount} from "enzyme";
+import ColorList from "../../../src/components/ui/ColorList";
+
+jest.mock('../../../src/components/ui/Color', () =>
+  ({rating, onRate = f => f}) =>
+    <div className="mock-color">
+      <button className="rate" onClick={() => onRate(rating)}></button>
+    </div>
+);
+
+
+
+describe('<ColorList /> UI Component', () => {
+
+  describe('Rating a Color', () => {
+
+    let _rate = jest.fn();
+
+    beforeAll(() =>
+      mount(<ColorList colors={_testColors} onRate={_rate}/>)
+        .find('button.rate')
+        .first()
+        .simulate('click')
+    );
+
+    it('invokes onRate Handler', () => {
+      expect(_rate).toBeCalled();
+    });
+
+    it('rates the correct color', () => {
+      expect(_rate).toBeCalledWith(
+        '8658c1d0-9eda-4a90-95e1-8001e8eb6036',
+        4
+      )
+    });
+
+  });
+
+});
+```
+
+我們使用 jest.mock 將模擬插入實際 Color 元件的位置。傳給 jest.mock 的第一個參數是要模擬的模組，第二個參數是回傳模擬元件的函式。此例中，Color 的模擬是縮小版的 Color 元件。此測試只在乎顏色的評分，因此模擬只需要處理顏色評分相關的屬性。
+
+此元件繪製出的 DOM 像是：
+
+```javascript
+<ColorList>
+  <div className="color-list">
+    <MockColor onRate={[Function]} rating={4}>
+      <div className="mock-color">
+        <button id="rate" onClick={[Function]}></button>
+      </div>
+    </MockColor>
+    <MockColor onRate={[Function]} rating={2}>
+      <div className="mock-color">
+        <button id="rate" onClick={[Function]}></button>
+      </div>
+    </MockColor>
+    <MockColor onRate={[Function]} rating={0}>
+      <div className="mock-color">
+        <button id="rate" onClick={[Function]}></button>
+      </div>
+    </MockColor>
+  </div>
+</ColorList>
+```
+
+這裡我們只在乎 ColorList，ColorList 的行為如同預期，點擊第一個顏色會將正確的評分傳給 onRate 屬性。
+
+#### 手動模擬
+
+Jest 能讓我們建構模組以使用模擬。相較於直接將模擬程式碼加入測試，每個模擬有一個 `__mocks__` 目錄供 Jest 尋找。
+
+讓我們檢視 `/src/components/containers.js` 檔案。此檔案帶有三個容器。下一個測試會專注於 Colors 容器：
+
+```javascript
+import ColorList from "./ui/ColorList";
+
+export const Colors = connect(
+  // mapStateToProps
+  state => ({
+    colors: [...state.colors].sort(sortFunction(state.sort))
+  }),
+  // mapDispatchToProps
+  dispatch => ({
+    onRemove(id) {
+      dispatch(removeColor(id));
+    },
+    onRate(id, rating) {
+      dispatch(rateColor(id, rating));
+    }
+  })
+)(ColorList);
+```
+
+Colors 容器用於連接 store 資料與 ColorList 元件。它儲存狀態中的顏色並以屬性發送給 ColorList，還處理 ColorList 中的 onRate 與 onRemove 函式屬性。最後，此容器相依於 ColorList 模組。
+
+將 `<Module>.js` 檔案加入 `__mocks__` 目錄以建構手動模擬。`__mocks__` 目錄帶有測試時取代真正模組的模擬模組。
+
+以下舉例。請看 ColorList.js 這個模擬程式碼：
+
+```javascript
+// src/components/ui/__mocks__/ColorList.js
+const ColorListMock = () => <div className="color-list-mock"></div>
+
+ColorListMock.displayName = 'ColorListMock';
+
+export default ColorListMock;
+```
+
+接下來以 jest.mock 模擬 `/src/components/ui/ColorList` 元件時，Jest 會從 `__mocks__` 目錄取得模擬。我們無須在測試中定義模擬。
+
+除了手動模擬 ColorList 外，我們還建構了 store 模擬。store 有三個重要函式：
+
+- dispatch
+- subscribe
+- getState
+
+我們的模擬 store 也有這三個函式。getState 函式提供回傳樣本顏色狀態的模擬函式實作。
+
+我們會使用這個模擬 store 來測試容器。我們以模擬 store 作為 store 屬性繪製 Provider 元件。我們的容器應該從該 store 取得顏色並傳送給模擬：
+
+```javascript
+import {mount} from "enzyme";
+import {Provider} from "react-redux";
+import {Colors} from "../../../src/components/containers";
+
+jest.mock('../../../src/components/ui/ColorList');
+
+describe('<Colors />', () => {
+
+  let wrapper;
+  const _store = {
+    dispatch: jest.fn(),
+    subscribe: jest.fn(),
+    getState: jest.fn(() =>
+      ({
+        sort: 'SORTED_BY_DATE',
+        colors: _testColors
+      })
+    )
+  };
+
+  beforeAll(() => wrapper = mount(
+    <Provider store={_store}>
+      <Colors/>
+    </Provider>
+  ));
+
+  it('renders three colors', () => {
+    expect(wrapper
+      .find('ColorListMock')
+      .props()
+      .colors
+      .length
+    ).toBe(3);
+  });
+
+  it('sorts the colors by date', () => {
+    expect(wrapper
+      .find('ColorListMock')
+      .props()
+      .colors[0]
+      .title
+    ).toBe('tomato');
+  });
+
+});
+````
+
+在此測試中我們呼叫 jest.mock 以模擬 ColorList 元件，但我們只傳送一個參數：被模擬模組的路徑。Jest 知道要從 `__mocks__` 目錄找尋模擬的實作。我們使用簡單的 ColorList 模擬元件。
+
+再加入幾個測試確保 onRate 與 onRemove 正確運作：
+
+```javascript
+it('dispatches a REMOVE_COLOR action', () => {
+  wrapper.find('ColorListMock')
+    .props()
+    .onRemove('f9005b4e-975e-433d-a646-79df172e1dbb');
+
+  expect(_store.dispatch.mock.calls[0][0])
+    .toEqual({
+      id: 'f9005b4e-975e-433d-a646-79df172e1dbb',
+      type: 'REMOVE_COLOR'
+    });
+});
+
+it('dispatches a RATE_COLOR action', () => {
+  wrapper.find('ColorListMock')
+    .props()
+    .onRate('58d9caee-6ea6-4d7b-9984-65b145031979', 5);
+
+  console.log(_store.dispatch.mock.calls);
+
+  expect(_store.dispatch.mock.calls[0][0])
+    .toEqual({
+      id: '58d9caee-6ea6-4d7b-9984-65b145031979',
+      type: 'RATE_COLOR',
+      rating: 5
+    });
+});
+```
+
+要測試 onRate 與 onRemove 無需實際模擬點擊，只需以一些資訊呼叫函式屬性並檢驗 store 的 dispatch 方法以正確的資料呼叫。此外，我們必須確保 dispatch 模擬在測試完成後重置。
+
+能夠插入模擬到我們想要的測試的模組中是 Jest 的功能之一。模擬是讓測試專注於 SUT 的有效技巧。
+
+## 快照測試
+
+測試導向開發是測試函式、自定類別與資料庫非常好的方式，但測試 UI 時 TDD 通常不實用。UI 經常變化使得維護 UI 測試很花時間。為已經上線的 UI 元件撰寫測試也是很常見的任務。
+
+快照測試提供快速測試 UI 元件以確保沒有引發任何預料外的改變。Jest 可儲存 UI 的快照並與測試的輸出進行比較，這能讓我們檢驗修改沒有意外效果且不會花太多時間在 UI 的測試上。
+
+讓我們看看如何以快照測試檢驗 Color 元件。首先，讓我們看看 Color 元件現在程式碼：
+
+```javascript
+import PropTypes from 'prop-types';
+import StarRating from "./StarRating";
+import FaTrash from 'react-icons/lib/fa/trash-o';
+import '../../../stylesheets/Color.scss'
+import TimeAgo from "./TimeAgo";
+
+const Color = ({id, title, color, rating = 0, timestamp, onRemove = f => f, onRate = f => f}) =>
+  <section className="color">
+    <h1>{title}</h1>
+    <button onClick={() => onRemove(id)}>
+      <FaTrash/>
+    </button>
+    <div className="color"
+         style={{backgroundColor: color}}>
+    </div>
+    <TimeAgo timestamp={timestamp} />
+    <div>
+      <StarRating starsSelected={rating}
+                  onRate={onRate}/>
+    </div>
+  </section>;
+
+Color.propTypes = {
+  id: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  color: PropTypes.string.isRequired,
+  rating: PropTypes.number,
+  onRemove: PropTypes.func,
+  onRate: PropTypes.func
+};
+
+export default Color;
+```
+
+若以特定的屬性繪製此元件，我們預期 DOM 會根據傳送的屬性帶有特定元件：
+
+```javascript
+shallow(
+  <Color title="Test Color"
+         color="#F0F0F0"
+         rating={3}
+         timestamp="Mon Apr 11 2016 12:54:19 GMT-0700 (PDT)"
+  />
+).html();
+```
+
+產生出的 DOM 應該像這樣：
+
+```html
+<section class="color">
+  <h1>Test Color</h1>
+  <button>
+    <svg/>
+  </button>
+  <div class="color"
+       style="background-color:#F0F0F0;">
+  </div>
+  <div class="time-ago">4/11/2016</div>
+  <div>
+    <div class="star-rating">
+      <div class="star selected"></div>
+      <div class="star selected"></div>
+      <div class="star selected"></div>
+      <div class="star"></div>
+      <div class="star"></div>
+      <p>3 of 5 stars</p>
+    </div>
+  </div>
+</section>
+```
+
+快照測試能讓我們在第一次執行測試時儲存 DOM 的快照，然後我們能夠與後續測試進行比對以確保繪製結果相同。
+
+讓我們開始撰寫 Color 元件的快照測試：
+
+```javascript
+import {shallow} from "enzyme";
+import Color from "../../../src/components/ui/Color";
+
+describe('<Color /> UI Component', () => {
+
+  it('Renders correct properties', () => {
+
+    let output = shallow(
+      <Color title="Test Color"
+             color="#F0F0F0"
+             rating={3}
+             timestamp="Mon Apr 11 2016 12:54:19 GMT-0700 (PDT)"
+      />
+    ).html();
+    
+    expect(output).toMatchSnapshot();
+
+  });
+
+});
+```
+
+此測試中，我們使用 Enzyme 繪製元件並收集輸出的 HTML 字串，.toMatchSnapshot 是 Jest 用於比較快照的程序。第一次執行此測試時，Jest 會將產生出的 HTML 儲存在快照檔案中。這個檔案會放在測試的 `__snapshots__` 目錄下。現在快照檔案看起來像這樣：
+
+```javascript
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<Color /> UI Component Renders correct properties 1`] = `"<section class=\\"color\\"><h1>Test Color</h1><button><svg fill=\\"currentColor\\" preserveAspectRatio=\\"xMidYMid meet\\" height=\\"1em\\" width=\\"1em\\" viewBox=\\"0 0 40 40\\" style=\\"vertical-align:middle;\\"><g><path d=\\"m15.9 16.4v12.9q0 0.3-0.2 0.5t-0.5 0.2h-1.4q-0.3 0-0.5-0.2t-0.2-0.5v-12.9q0-0.3 0.2-0.5t0.5-0.2h1.4q0.3 0 0.5 0.2t0.2 0.5z m5.7 0v12.9q0 0.3-0.2 0.5t-0.5 0.2h-1.4q-0.3 0-0.5-0.2t-0.2-0.5v-12.9q0-0.3 0.2-0.5t0.5-0.2h1.4q0.3 0 0.5 0.2t0.2 0.5z m5.8 0v12.9q0 0.3-0.2 0.5t-0.6 0.2h-1.4q-0.3 0-0.5-0.2t-0.2-0.5v-12.9q0-0.3 0.2-0.5t0.5-0.2h1.4q0.4 0 0.6 0.2t0.2 0.5z m2.8 16.2v-21.2h-20v21.2q0 0.5 0.2 0.9t0.3 0.6 0.2 0.2h18.6q0.1 0 0.2-0.2t0.4-0.6 0.1-0.9z m-15-24h10l-1.1-2.6q-0.1-0.2-0.3-0.3h-7.1q-0.2 0.1-0.4 0.3z m20.7 0.7v1.4q0 0.3-0.2 0.5t-0.5 0.2h-2.1v21.2q0 1.8-1.1 3.2t-2.5 1.3h-18.6q-1.4 0-2.5-1.3t-1-3.1v-21.3h-2.2q-0.3 0-0.5-0.2t-0.2-0.5v-1.4q0-0.3 0.2-0.5t0.5-0.2h6.9l1.6-3.8q0.3-0.8 1.2-1.4t1.7-0.5h7.2q0.9 0 1.8 0.5t1.2 1.4l1.5 3.8h6.9q0.3 0 0.5 0.2t0.2 0.5z\\"></path></g></svg></button><div class=\\"color\\" style=\\"background-color:#F0F0F0;\\"></div><div class=\\"time-ago\\">4/12/2016</div><div><div class=\\"star-rating\\"><div class=\\"star selected\\"></div><div class=\\"star selected\\"></div><div class=\\"star selected\\"></div><div class=\\"star\\"></div><div class=\\"star\\"></div><p>3 of 5 stars</p></div></div></section>"`;
+
+```
+
+接下來執行測試時 Jest 會比較輸出與快照。若產生出的 HTML 不同則測試失敗。
+
+快照測試能讓我們快速前進，但若前進的太快，我們可能會寫出不穩定測試，或應該失敗的測試卻通過了。拍下 HTML 字串的快照可供測試，但我們很難確定快照是對的。讓我們將輸出儲存成 JSX 以改善快照。
+
+為此，我們需要安裝 enzyme-to-json 模組：
+
+```shell
+$ npm i enzyme-to-json --save-dev
+```
+
+此模組提供將 Enzyme 包裝程序繪製成 JSX 功能，如此能更容易檢視快照輸出的正確性。
+
+要使用 enzyme-to-json 繪製快照，我們先以 Enzyme 淺繪製 Color 元件，然後將結果傳給 toJSON 函式，再將 toJSON 的結果傳給 expect 函式。我們可能會想要寫出這樣的程式：
+
+```javascript
+expect(
+  toJSON(
+    shallow(
+      <Color title="Test Color"
+             color="#F0F0F0"
+             rating={3}
+             timestamp="Mon Apr 11 2016 12:54:19 GMT-0700 (PDT)"
+      />
+    )
+  )
+).toMatchSnapshot();
+```
+
+但此時非常適合組合來改善我們的程式碼。使用 Redux 的 compose 函式：
+
+```javascript
+import {shallow} from "enzyme";
+import toJSON from 'enzyme-to-json';
+import Color from "../../../src/components/ui/Color";
+import {compose} from "redux";
+
+describe('<Color /> UI Component', () => {
+
+  const shallowExpect = compose(expect, toJSON, shallow);
+
+  it('Renders correct properties', () => {
+    shallowExpect(
+      <Color title="Test Color"
+             color="#F0F0F0"
+             rating={3}
+             timestamp="Mon Apr 11 2016 12:54:19 GMT-0700 (PDT)"
+      />
+    ).toMatchSnapshot();
+  });
+
+});
+```
+
+shallowExpect 函式淺繪製元件、轉換結果成 JSON，然後傳送給 expect 方法回傳所有 Jest 檢查程序。
+
+
+執行此測試會失敗，因為現在輸出是 JSX 而非 HTML 字串。我們測試不再符合快照，但快照很容易更新。我們可以在執行測試時加上 updateSnapshot 旗標更新快照：
+
+```shell
+$ jest --updateSnapshot
+```
+
+若執行 Jest 時加上 watch 旗標：
+
+```shell
+$ jest --watch
+```
+
+Jest 會繼續在終端機執行並傾聽原始碼與測試的改變。若有改變，Jest 會重新執行測試。監視測試時，你可以按下 u 鍵更新快照。
+
+更新後快照像是這樣：
+
+```javascript
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<Color /> UI Component Renders correct properties 1`] = `
+<section
+  className="color"
+>
+  <h1>
+    Test Color
+  </h1>
+  <button
+    onClick={[Function]}
+  >
+    <FaTrashO />
+  </button>
+  <div
+    className="color"
+    style={
+      Object {
+        "backgroundColor": "#F0F0F0",
+      }
+    }
+  />
+  <TimeAgo
+    timestamp="Mon Apr 11 2016 12:54:19 GMT-0700 (PDT)"
+  />
+  <div>
+    <StarRating
+      onRate={[Function]}
+      starsSelected={3}
+    />
+  </div>
+</section>
+`;
+```
+
+此快照更可讀。進行下一個測試前我們可以一眼就判斷結果正確。快照測試是加入應用程式測試的高效率方式。
+
+## 使用程式碼涵蓋率
+
+程式碼涵蓋率是報告有多少行程式碼實際測試過的程序，它提供一個度量可幫助你判斷是否有足夠的測試。
+
+Jest 有個稱為 Istanbul 的 JavaScript 工具可計算測試並產生陳述、分支、函式與行數涵蓋的報告。
+
+要執行 Jest 與涵蓋率，只需在執行 jest 命令時加上 coverage 旗標：
+
+```shell
+$ jest --coverage
+```
+
+程式碼報告會產生並顯示在終端機：
+
+```
+ PASS  __tests__/components/containers/Colors.test.js (5.073s)
+ PASS  __tests__/components/ui/Color.test.js
+ PASS  __tests__/components/ui/ColorList.test.js
+ PASS  __tests__/components/ui/Star.test.js
+ PASS  __tests__/actions.test.js
+ PASS  __tests__/components/HOC/Expandable.test.js
+ PASS  __tests__/store/reducers/color.test.js
+--------------------|----------|----------|----------|----------|-------------------|
+File                |  % Stmts | % Branch |  % Funcs |  % Lines | Uncovered Line #s |
+--------------------|----------|----------|----------|----------|-------------------|
+All files           |    63.58 |    37.29 |    40.58 |    68.46 |                   |
+ src                |    88.89 |      100 |       75 |    88.89 |                   |
+  actions.js        |     87.5 |      100 |       75 |     87.5 |                27 |
+  constants.js      |      100 |      100 |      100 |      100 |                   |
+ src/components     |    58.33 |      100 |       40 |    58.33 |                   |
+  containers.js     |    58.33 |      100 |       40 |    58.33 |    12,14,21,25,27 |
+ src/components/HOC |      100 |      100 |      100 |      100 |                   |
+  Expandable.js     |      100 |      100 |      100 |      100 |                   |
+ src/components/ui  |    42.22 |       40 |       20 |    51.35 |                   |
+  AddColorForm.js   |    16.67 |        0 |        0 |    18.18 |... 12,13,16,18,21 |
+  Color.js          |       50 |    66.67 |       25 |       75 |                10 |
+  ColorList.js      |    71.43 |       40 |       60 |      100 |               6,9 |
+  SortMenu.js       |     37.5 |        0 |        0 |    42.86 |       11,14,18,19 |
+  Star.js           |       75 |      100 |       50 |      100 |                   |
+  StarRating.js     |    33.33 |        0 |        0 |       40 |             5,7,9 |
+  TimeAgo.js        |       50 |      100 |        0 |       50 |                 4 |
+ src/lib            |    58.54 |       15 |    16.67 |    67.65 |                   |
+  array-helpers.js  |       60 |    33.33 |       60 |    71.43 |               6,8 |
+  time-helpers.js   |    58.06 |        0 |        0 |    66.67 |... 38,43,45,49,54 |
+ src/store          |    82.86 |    52.94 |    83.33 |    80.65 |                   |
+  index.js          |      100 |    33.33 |      100 |      100 |             22,25 |
+  reducer.js        |    64.71 |    57.14 |       60 |    64.71 | 21,33,34,37,38,48 |
+--------------------|----------|----------|----------|----------|-------------------|
+
+Test Suites: 7 passed, 7 total
+Tests:       23 passed, 23 total
+Snapshots:   1 passed, 1 total
+Time:        10.004s
+Ran all test suites.
+```
+
+此報告說明每個檔案有多少程式碼在測試過程中執行，並報告被測試匯入的所有檔案。
+
+Jest 還產生可在瀏覽器中謢型的報告，它提供更多的程式碼涵蓋細節。你會發現執行 Jest 與涵蓋率後，目錄下面多了 cvoverage 目錄，從瀏覽器開啟 `/coverage/lcov-report/index.html`，它以互動報告顯示涵蓋率：
+
+![](https://imgur.com/DUkpf1W.png)
+
+這個報告告訴你涵蓋多少程式碼以及根據子目錄的個別涵蓋率。可深入子目錄檢視個別檔案。
+
+ColorList 元件有相當好的測試。但在個別涵蓋率的部分，顯示了 onRemove 屬性還沒有測試過，讓我們加入一個測試組來測試：
+
+```javascript
+import {mount} from "enzyme";
+import ColorList from "../../../src/components/ui/ColorList";
+
+jest.mock('../../../src/components/ui/Color', () =>
+  ({rating, onRate = f => f, onRemove = f => f}) =>
+    <div className="mock-color">
+      <button className="rate" onClick={() => onRate(rating)}></button>
+      <button className="remove" onClick={onRemove}></button>
+    </div>
+);
+
+
+
+describe('<ColorList /> UI Component', () => {
+
+  // ...
+
+  describe('Remove a Color', () => {
+
+    let _remove = jest.fn();
+
+    beforeAll(() =>
+      mount(<ColorList colors={_testColors} onRemove={_remove}/>)
+        .find('button.remove')
+        .first()
+        .simulate('click')
+    );
+
+    it('invokes onRemove Handler', () => {
+      expect(_remove).toBeCalled();
+    });
+
+    it('remove the correct color', () => {
+      expect(_remove).toBeCalledWith(
+        '8658c1d0-9eda-4a90-95e1-8001e8eb6036'
+      )
+    });
+
+
+  });
+
+});
+```
+
+下一次產生涵蓋率報告將會看到改善。
+
+不過我們沒有以空的顏色陣列繪製 ColorList。讓我們加入這個測試涵蓋：
+
+```javascript
+describe('Rendering UI', () => {
+
+  it('Defaults properties correctly', () => {
+    expect(shallow(<ColorList/>).find('p').text())
+      .toBe('No Colors Listed. (Add a Color)')
+  });
+
+});
+```
+
+ColorList 元件的測試已經接近 100%。唯一還沒測試的是 onRate 與 onRemove 的預設函式。若我們沒提供這些函式，則屬性勢必要的。我們可以在沒有屬性下繪製 ColorList 元件以改善測試。我們還要模擬評分按鈕與刪除按鈕的點擊：
+
+```javascript
+describe('Rendering UI', () => {
+
+  it('Defaults properties correctly', () => {
+    expect(shallow(<ColorList/>).find('p').text())
+      .toBe('No Colors Listed. (Add a Color)')
+  });
+
+  it('Clicking default rate button does not cause', () => {
+    mount(<ColorList colors={_testColors}/>)
+      .find('button.rate')
+      .first()
+      .simulate('click');
+  });
+
+  it('Clicking default remove button does not cause', () => {
+    mount(<ColorList colors={_testColors}/>)
+      .find('button.remove')
+      .first()
+      .simulate('click');
+  });
+
+});
+```
+
+下一次執行 Jest 與涵蓋率報告，ColorList 的涵蓋率到 100%。
+
+但專案中的其餘元件還有很多工作要做。
+
+你可以使用這個報告提升測試涵蓋的程式碼數量以幫助你改善測試。
+
+你也可以在 package.json 檔案中加入涵蓋率選項：
+
+```json
+"jest": {
+  "setupFiles": [
+    "./__tests__/global.js"
+  ],
+  "modulePathIgnorePatterns": [
+    "global.js"
+  ],
+  "moduleNameMapper": {
+    "\\.(scss)$": "<rootDir>/node_modules/jest-css-modules"
+  },
+  "verbose": true,
+  "collectCoverage": true,
+  "notify": true,
+  "collectCoverageFrom": ["src/**"],
+  "coverageThreshold": {
+    "global": {
+      "branches": 80,
+      "functions": 80,
+      "lines": 80,
+      "statements": 80
+    }
+  }
+}
+```
+
+- coverageThreshold 欄位定義測試通過前應該涵蓋多少程式碼
+- collectCoverageFrom 欄位以 global 模式陣列指定涵蓋哪些檔案
+- collectCoverage 設為 true 表示涵蓋率資料必須在每次對此專案執行 jest 命令時收集
+- notify 欄位以作業系統的對話框顯示
+- verbose 選項在每次執行 Jest 時顯示細節報告
+
+  ```shell
+   PASS  __tests__/components/ui/ColorList.test.js
+    <ColorList /> UI Component
+      Rating a Color
+        ✓ invokes onRate Handler (6ms)
+        ✓ rates the correct color (1ms)
+      Remove a Color
+        ✓ invokes onRemove Handler (1ms)
+        ✓ remove the correct color
+      Rendering UI
+        ✓ Defaults properties correctly (3ms)
+        ✓ Clicking default rate button does not cause (3ms)
+        ✓ Clicking default remove button does not cause (3ms)
+  ```
+
+程式碼涵蓋率是評估測試很好的工具，它幫助你了解是否有足夠的單元測試。並非每個專案都要達到 100% 涵蓋，高於 85% 是不錯的目標。

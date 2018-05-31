@@ -4,10 +4,10 @@ import FaTrash from 'react-icons/lib/fa/trash-o';
 import '../../../stylesheets/Color.scss'
 import TimeAgo from "./TimeAgo";
 
-const Color = ({id, title, color, rating = 0, timestamp, onRemove = f => f, onRate = f => f}) =>
+const Color = ({title, color, rating = 0, timestamp, onRemove = f => f, onRate = f => f}) =>
   <section className="color">
     <h1>{title}</h1>
-    <button onClick={() => onRemove(id)}>
+    <button onClick={onRemove}>
       <FaTrash/>
     </button>
     <div className="color"
@@ -16,12 +16,11 @@ const Color = ({id, title, color, rating = 0, timestamp, onRemove = f => f, onRa
     <TimeAgo timestamp={timestamp} />
     <div>
       <StarRating starsSelected={rating}
-                  onRate={(rating) => onRate(id, rating)}/>
+                  onRate={onRate}/>
     </div>
   </section>;
 
 Color.propTypes = {
-  id: PropTypes.string.isRequired,
   title: PropTypes.string.isRequired,
   color: PropTypes.string.isRequired,
   rating: PropTypes.number,
