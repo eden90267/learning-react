@@ -492,4 +492,301 @@ React Router 能讓我們在應用程式中組合 Route 元件，因為 HashRout
 
 ## Router 的參數
 
-React Router 的另一個實用功能是設定**路由參數**。
+React Router 的另一個實用功能是設定**路由參數**。路由參數是從 URL
+取得的變數值，它們在資料驅動的網站應用程式程式中對過濾內容或管理顯示偏好特別有用。
+
+### 加上顏色細節頁
+
+讓我們使用 React Router
+加入選取與顯示個別顏色的功能，以改善顏色管理程式。使用者點擊顏色時，應用程式應該繪製該顏色並顯示
+title 與 hex 值。
+
+每個顏色有獨特的 ID。此 ID
+可用來尋找儲存在狀態中的特定顏色。舉例來說，我們可以建構 findById 函式來依 id 欄尋找陣列中的物件：
+
+```javascript
+// src/lib/array.helper.js
+export const getFirstArrayItem = array => array[0];
+
+export const filterArrayById = (array, id) =>
+  array.filter(item => item.id === id);
+
+export const findById = compose(
+  getFirstArrayItem,
+  filterArrayById
+);
+```
+
+findById 函式依循第二章討論的函式性程式設計技術。
+
+使用 router 時，我們可以從 URL 取得顏色的 ID。舉例：
+
+```
+http://localhost:3000/#/58d9caee-6ea6-4d7b-9984-65b1450319979
+```
+
+router 參數能讓我們擷取這個值。它們可使用分號定義在路由中。舉例，我們可以擷取 id
+並以 Route 將它儲存在稱為 id 的參數中：
+
+```javascript
+<Route exact path="/:id" component={UniqueIDHeader} />
+```
+
+UniqueIDHeader 元件可從 match.params 物件取得 id：
+
+```javascript
+const UniqueIDHeader = ({match}) => <h1>{match.params.id}</h1>
+```
+
+我們可與有需要時建構參數以從 URL 收集資料
+
+#### 多個參數
+
+同一個參數物件可建構多個參數。
+
+```javascript
+<Route path="/members/:gender/:state/:city" component={Member} />
+```
+
+這三個參數可透過 URL 初始化：
+
+```
+http://localhost:3000/members/female/california/truckee
+```
+
+這三個參數會透過 match.params 傳遞給 Member 元件：
+
+```javascript
+const Member = ({match}) =>
+  <div className="member">
+    <ul>
+      <li>gender: {match.params.gender}</li>
+      <li>state: {match.params.state}</li>
+      <li>city: {match.params.city}</li>
+    </ul>
+  </div>
+```
+
+讓我們建構一個 ColorDetails 元件，當使用者選取一個顏色時將可被繪製：
+
+```javascript
+export const Color = connect(
+  (state, props) =>
+    findById(state.colors, props.match.params.id)
+)(ColorDetails);
+```
+
+connect 這個 HOC 也會對應傳給 Color 容器的任何屬性給 ColorDetails
+元件。這表示所有 router 屬性也會傳給 ColorDetails。
+
+讓我們用所有 router 的歷史屬性對 ColorDetails 元件加上一些導航：
+
+```javascript
+const ColorDetails = ({title, color, history}) =>
+  <div className="color-details"
+       style={{backgroundColor: color}}
+       onClick={() => history.goBack()}>
+    <h1>{title}</h1>
+    <h1>{color}</h1>
+  </div>;
+```
+
+現在我們有 Color 容器，必須將它加入應用程式中。首先，必須在首次繪製時以
+HashRouter 包裝 App 元件。
+
+```javascript
+// src/index.js
+import {HashRouter} from 'react-router-dom';
+
+render(
+  <Provider store={store}>
+    <HashRouter>
+      <App />
+    </HashRouter>
+  </Provider>,
+  document.getElementById('react-container')
+);
+```
+
+現在我們可在應用程式中設定路由。讓我們在 App 元件中加上一些路由。
+
+```javascript
+// src/components/App.js
+import {Menu, NewColor, Colors} from "./containers";
+import '../../stylesheets/APP.scss'
+import {Route, Switch} from "react-router-dom";
+import Color from "./ui/Color";
+
+const App = () =>
+  <Switch>
+    <Route exact path="/:id" component={Color}/>
+    <Route path="/" component={() =>
+      <div className="app">
+        <Menu/>
+        <NewColor/>
+        <Colors/>
+      </div>
+    }/>
+  </Switch>;
+
+export default App;
+```
+
+Switch 元件用於繪製兩個路由其中之一：個別顏色或應用程式主元件。第一個 Router 於
+URL 有傳入 id 時繪製 Color 元件。舉例來說，下面路徑與路由相符：
+
+```
+http://localhost:3000/#/58d9caee-6ea6-4d7b-9984-65b1450319979
+```
+
+其他路徑會與 / 相符並顯示應用程式主元件。第二個 Route
+在新的不具名無狀態函式性元件下組合多個元件，因此使用者會依 URL 看到個別顏色或顏色清單。
+
+此時不使用 NavLink 元件來處理從顏色清單到顏色細節的瀏覽，而是直接使用 router 的
+history 物件。
+
+讓我們對 ./ui 目錄中的 Color 元件加上導航。此元件由 ColorList 繪製。它未接收來自
+Route 的路由屬性。你可在樹中明確向下傳遞這些屬性到 Color 元件。但使用 withRouter
+函式比較方便。react-router-dom 內建的 WithRouter 函式可將路由屬性加到 Route 下繪製的任何元件中。
+
+我們使用 withRouter 取得 router 作為屬性的 history 物件。我們可以使用它在
+Color 元件中導航：
+
+```javascript
+import PropTypes from 'prop-types';
+import StarRating from "./StarRating";
+import FaTrash from 'react-icons/lib/fa/trash-o';
+import '../../../stylesheets/Color.scss'
+import TimeAgo from "./TimeAgo";
+import {withRouter} from "react-router-dom";
+
+
+const Color = ({id, title, color, rating = 0, timestamp, onRemove = f => f, onRate = f => f, history}) =>
+  <section className="color">
+    <h1 onClick={() => history.push(`/${id}`)}>{title}</h1>
+    <button onClick={onRemove}>
+      <FaTrash/>
+    </button>
+    <div className="color"
+         style={{backgroundColor: color}}
+         onClick={() => history.push(`/${id}`)}>
+    </div>
+    <TimeAgo timestamp={timestamp} />
+    <div>
+      <StarRating starsSelected={rating}
+                  onRate={onRate}/>
+    </div>
+  </section>;
+
+Color.propTypes = {
+  id: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  color: PropTypes.string.isRequired,
+  rating: PropTypes.number,
+  onRemove: PropTypes.func,
+  onRate: PropTypes.func
+};
+
+export default withRouter(Color);
+```
+
+withRouter 是個 HOC。匯出 Color 元件時，我們將它傳送給 withRouter，以傳遞
+router 的 match、history 與 location 屬性的元件包裝。
+
+導航從 history 物件直接取得。使用者點擊顏色名稱或顏色本身，新的路由會加入 history
+物件中。此新路由是帶有顏色的 id 字串，將此路由加入歷史會導致瀏覽的發生。
+
+#### 單一事實來源
+
+現在，顏色管理的狀態大部分由 Redux 的 store 處理。我們也有些狀態由 router
+處理。特別是，若路由帶有顏色 ID，應用程式的顯示狀態與路由沒有 ID 不同。
+
+讓 router 處理某些狀態似乎違反 Redux 對儲存狀態在單一物件中的要求，但你可以將
+router 視為與瀏覽器對接的事實來源。讓 router
+處理包括查詢資料的過濾在內與網站地圖有關的狀態是絕對 OK 的，其餘的狀態交給 Redux
+的 store。
+
+### 顏色排序狀態交給 Router
+
+你無需限制 Router 參數的使用。它們不只能查詢狀態中的特定資料，還可取得繪製 UI 必要的資訊。
+
+顏色應用程式裡 Redux 的 store 目前 store 變數是個字串，因此也適合作為路由參數。我們想要讓使用者能夠以連結傳送排序狀態給其他使用者。
+
+讓我們將顏色的排序狀態交給路由參數：
+
+- /#/預設值
+- /#/sort/title
+- /#/sort/rating
+
+首先從 ./store/index.js 刪除排序的 reducer：
+
+```javascript
+const storeFactory = (initialState = stateData) =>
+  applyMiddleware(logger, saver)(createStore)(
+    combineReducers({colors}),
+    (localStorage['redux-store']) ?
+      JSON.parse(localStorage['redux-store']) :
+      initialState
+  );
+```
+
+./src/components/containers.js 刪除 Menu 容器。
+
+此外，我們必須改變 containers.js 檔案中 Colors 容器。
+
+```javascript
+export const Colors = connect(
+  // mapStateToProps
+  ({colors}, {match}) => ({
+    colors: sortColors(colors, match.params.sort)
+  }),
+  // mapDispatchToProps
+  dispatch => ({
+    onRemove(id) {
+      dispatch(removeColor(id));
+    },
+    onRate(id, rating) {
+      dispatch(rateColor(id, rating));
+    }
+  })
+)(ColorList);
+```
+
+接下來，以新路由的連結取代 Menu 元件：
+
+```javascript
+import {NavLink} from "react-router-dom";
+import '../../../stylesheets/Menu.scss'
+
+const selectedStyle = {
+  color: 'red'
+};
+
+const Menu = ({match}) =>
+  <nav className="menu">
+    <NavLink to="/" style={match.isExact && selectedStyle}>
+      date
+    </NavLink>
+    <NavLink to="/sort/title" activeStyle={selectedStyle}>
+      title
+    </NavLink>
+    <NavLink to="/sort/rating" activeStyle={selectedStyle}>
+      rating
+    </NavLink>
+  </nav>;
+
+export default Menu;
+```
+
+首先，Menu 需要符合屬性，因此我們會以 Route 繪製 Menu。Menu 會與 NewColor
+一起從顏色清單繪製，因為 Route 沒有路徑。
+
+NewColor 之後，我們想要顯示預設排序或依屬性排序的顏色清單。這些路由包裝在 Switch
+元件中以確保只會繪製一個 Colors 容器。
+
+路由參數是取得影響使用者介面資料的好工具，但它們只應該供使用者在 URL
+中擷取這些細節用。若想要讓使用者儲存展示的資訊到 URL 中，路由參數是合適的解決方案。
+
+這一章討論了 React Router 的基本運用。這一章的範例都有使用到
+HashRouter。下一章繼續在用戶端與伺服器使用此路由功能以及
+BrowserRouter，我們會在伺服器使用 StaticRouter 繪製目前的路由內容。
