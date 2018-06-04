@@ -222,5 +222,196 @@ Recipe app running at 'http://localhost:3000'
 ReactDOM 的 renderToString 繪製 Menu 元件與一些食譜資料：
 
 ```javascript
+import React from 'react';
+import {renderToString} from 'react-dom/server';
+import express from 'express';
+import Menu from "./components/Menu";
+import data from './assets/recipes';
 
+global.React = React;
+
+const html = renderToString(<Menu recipes={data}/>);
+
+const logger = (req, res, next) => {
+  console.log(`${req.method} request for ${req.url}`);
+  next();
+};
+
+const sendHTMLPage = (req, res) =>
+  res.status(200).send(`
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport"
+            content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+      <meta http-equiv="X-UA-Compatible" content="ie=edge">
+      <title>React Recipes App</title>
+    </head>
+    <body>
+    <div id="react-container">${html}</div>
+    </body>
+    </html>
+  `);
+
+
+const app = express()
+  .use(logger)
+  .use(sendHTMLPage);
+
+app.listen(3000, () =>
+  console.log(`Recipe app running at 'http://localhost:3000'`)
+);
 ```
+
+React 全域的顯露，因此 renderToString 可正確的運作。
+
+我們有了伺服器繪製的 Menu 元件。我們的應用程式還不是同構，因為元件只在伺服器繪製。要讓它同構，我們需要在回應加上一些 JavaScript，以讓同一個元件可在瀏覽器中繪製。
+
+讓我們建構在瀏覽器中執行的 index-client.js 檔案：
+
+```javascript
+import React from 'react';
+import {render} from 'react-dom';
+import Menu from "./components/Menu";
+
+window.React = React;
+
+alert('bundle loaded, Rendering in browser');
+
+render(
+  <Menu recipes={__DATA__}/>,
+  document.getElementById('react-container')
+);
+
+alert('render complete');
+```
+
+瀏覽器載入此腳本時，`__DATA__` 已經存在與全域範圍中。alert 方法用於提示瀏覽器繪製了 UI。
+
+我們需要將 client.js 檔案加入瀏覽器使用的程式包。一個基本的 webpack 組態可處理：
+
+```javascript
+const webpack = require('webpack');
+
+module.exports = {
+  entry: "./index-client.js",
+  output: {
+    path: path.resolve(__dirname, 'assets'),
+    filename: "bundle.js",
+  },
+  module: {
+    rules: [
+      {
+        test: /\.js$/,
+        exclude: /(node_modules)/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: ['env', 'stage-0', 'react']
+          }
+        },
+      }
+    ]
+  }
+}
+```
+
+我們想要在每次啟動應用程式時建構用戶端程式包，因此必須將啟動腳本加入到 package.json 檔案中：
+
+```json
+"scripts": {
+  "prestart": "webpack --progress",
+  "start": "babel-node index-server.js"
+},
+```
+
+最後是修改伺服器：
+
+```javascript
+const sendHTMLPage = (req, res) =>
+  res.status(200).send(`
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport"
+            content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+      <meta http-equiv="X-UA-Compatible" content="ie=edge">
+      <title>React Recipes App</title>
+    </head>
+    <body>
+    <div id="react-container">${html}</div>
+    <script>
+        window.__DATA__ = ${JSON.stringify(data)}
+    </script>
+    <script src="bundle.js"></script>
+    </body>
+    </html>
+  `);
+
+
+const app = express()
+  .use(logger)
+  .use(express.static('./assets'))
+  .use(sendHTMLPage);
+```
+
+現在我們同構了 React 元件，先是伺服器，然後是瀏覽器。執行此應用程式時，你會在瀏覽器繪製該元件前後看到警示對話框。你會注意到關閉第一個警示對話框前內容已經顯示，這是因為它是在伺服器上繪製。
+
+繪製同一個內容兩次似乎不太對，但這樣有好處。此應用程式在各種瀏覽器上繪製相同內容，就算關掉 JavaScript 也一樣。由於內容是初始請求載入，網站會跑得比較快且更快的傳送資料給行動使用者。它無需等待行動處理器繪製 UI —— UI 已經就位。此外，此應用程式利用了 SPA 的各種好處。同構的 React 應用程式兩面玲瓏。
+
+## 通用顏色管理
+
+前面五章建構顏色管理應用程式。我們已經有許多程式碼可供建構網頁伺服器時重複使用。
+
+讓我們為此應用程式建構一個 Express 伺服器並盡可能重複使用程式碼。首先，需要設定 Express 應用程式實例的模組，所以讓我們建構 ./server/app.js：
+
+```javascript
+import React from 'react';
+import {renderToString} from 'react-dom/server';
+import express from 'express';
+import path from 'path';
+
+global.React = React;
+
+const html = renderToString(<Menu recipes={data}/>);
+
+const fileAssets = express.static(
+  path.join(__dirname, '../../dist/assets')
+);
+
+const logger = (req, res, next) => {
+  console.log(`${req.method} request for ${req.url}`);
+  next();
+};
+
+const respond = (req, res) =>
+  res.status(200).send(`
+    <!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport"
+            content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+      <meta http-equiv="X-UA-Compatible" content="ie=edge">
+      <title>Universal Color Oraganizer</title>
+    </head>
+    <body>
+    <div id="react-container">ready...</div>
+    </body>
+    </html>
+  `);
+
+
+const app = express()
+  .use(logger)
+  .use(fileAssets)
+  .use(respond);
+
+app.listen(3000, () =>
+  console.log(`Recipe app running at 'http://localhost:3000'`)
+);
+```
+
+此模組是我們通用應用程式的啟動點。
