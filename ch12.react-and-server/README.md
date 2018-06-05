@@ -368,14 +368,8 @@ const app = express()
 讓我們為此應用程式建構一個 Express 伺服器並盡可能重複使用程式碼。首先，需要設定 Express 應用程式實例的模組，所以讓我們建構 ./server/app.js：
 
 ```javascript
-import React from 'react';
-import {renderToString} from 'react-dom/server';
 import express from 'express';
 import path from 'path';
-
-global.React = React;
-
-const html = renderToString(<Menu recipes={data}/>);
 
 const fileAssets = express.static(
   path.join(__dirname, '../../dist/assets')
@@ -395,7 +389,7 @@ const respond = (req, res) =>
       <meta name="viewport"
             content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
       <meta http-equiv="X-UA-Compatible" content="ie=edge">
-      <title>Universal Color Oraganizer</title>
+      <title>Universal Color Organizer</title>
     </head>
     <body>
     <div id="react-container">ready...</div>
@@ -404,14 +398,733 @@ const respond = (req, res) =>
   `);
 
 
-const app = express()
+export default express()
   .use(logger)
   .use(fileAssets)
   .use(respond);
-
-app.listen(3000, () =>
-  console.log(`Recipe app running at 'http://localhost:3000'`)
-);
 ```
 
 此模組是我們通用應用程式的啟動點。
+
+webpack 能讓我們匯入 CSS 或圖案等內容，但 Node.js 不遂知道如何處理這些匯入內容。我們必須使用 ignore-styles 函式庫以確保略過 SCSS 匯入陳述：
+
+```shell
+$ npm i ignore-styles --save
+```
+
+此檔案代表 Node.js 伺服器的進入點：
+
+```javascript
+import React from 'react';
+import ignoreStyles from 'ignore-styles';
+import app from './app';
+
+global.React = React;
+
+app.set('port', process.env.PORT || 3000)
+  .listen(
+    app.get('port'),
+    () => console.log(`Color Organizer running at 'http://localhost:${app.get('port')}'`)
+  );
+```
+
+此檔案將 React 加到全域實例並啟動伺服器。此外，我們引入 ignore-styles 模組，它會略過這些匯入以讓我們在 Node.js 繪製元件且不會引發錯誤。
+
+現在我們有個啟動點：一個基本的 Express 應用程式組態。需要在伺服器引入新功能時，它們必須加到此應用程式組態模組。
+
+這章其餘內容會一直反覆修改 Express 應用程式。我們會建構同構/通用版本的顏色管理應用程式。
+
+### 通用 Redux
+
+Redux 函式庫中的所有 JavaScript 都是通用的。你的 reducer 是以 JavaScript 撰寫且程式碼應該沒有與環境相依。Redux 被設計作為瀏覽器應用程式狀態容器，但可用於各種 Node.js 應用程式，包括 CLI、伺服器與原生應用程式。
+
+我們用 Redux 的 store 將狀態的改變儲存在伺服器上的 JSON 檔案中。
+
+首先，我們必須修改 storeFactory 以讓他可以同構的運作。
+
+- console.groupCollapsed
+- console.groupEnd
+
+這兩項 Node.jks 沒有這方法，server 建構 store，需要使用不同的日誌紀錄：
+
+
+```javascript
+import {createStore, combineReducers, applyMiddleware} from "redux";
+import {colors} from './reducer';
+
+const clientLogger = store => next => action => {
+  let result;
+  console.groupCollapsed("dispatching", action.type);
+  console.log('prev state', store.getState());
+  console.log('action', action);
+  result = next(action);
+  console.log('next state', store.getState());
+  console.groupEnd();
+  return result;
+};
+
+const serverLogger = store => next => action => {
+  console.log('\n dispatching server action\n');
+  console.log(action);
+  console.log('\n');
+  return next(action);
+};
+
+const middleware = server =>
+  (server) ? serverLogger : clientLogger;
+
+const storeFactory = (server = false, initialState = {}) =>
+  applyMiddleware(middleware)(createStore)(
+    combineReducers({colors}),
+    initialState
+  );
+
+export default storeFactory;
+```
+
+現在 storeFactory 是同構的。我們建構了在伺服器記錄動作的 Redux 中介軟體。storeFactory 被叫用時，我們會告訴它我們想要在新的 store 實例中接入哪一種日誌記錄程序。
+
+我們要建構 serverStore 的實例。在 Express 組態裡面，我們必須要匯入 storeFactory 與初始狀態資料：
+
+```javascript
+import storeFactory from "../store";
+import initialState from '../../data/initialState';
+
+const serverStore = storeFactory(true, initialState);
+```
+
+現在我們有個在伺服器上執行的 store 實例。
+
+每當有 action 分發給此實例，我們會想要確保 initialState.json 檔案被更新。使用 subscript 方法傾聽狀態的改變，並於改變時儲存新的 JSON 檔案。
+
+```javascript
+serverStore.subscribe(() =>
+  fs.writeFile(
+    path.join(__dirname, '../../data/initialState.json'),
+    JSON.stringify(serverStore.getState()),
+    error => (error) ?
+      console.log('Error saving state!', error) :
+      null
+  )
+);
+```
+
+新的 action 被分發，新的狀態以 fs 模組儲存到 initialState.json 檔案。
+
+現在 serverStore 是主要的事實來源，請求必須與它溝通以取得最新的顏色清單。我們會加入一些中介軟體以將伺服器 store 加入請求管道，讓其他中介軟體在請求時可以使用它：
+
+```javascript
+const aaddStoreToRequestPipeline = (req, res, next) => {
+  req.store = serverStore;
+  next();
+};
+
+export default express()
+  .use(logger)
+  .use(fileAssets)
+  .use(aaddStoreToRequestPipeline)
+  .use(htmlResponse);
+```
+
+現在任何 addStoreToRequestPipeline 之後的中介軟體方法可存取 request 物件中的 store。我們通用的使用 Redux。包括我們的 reducer 在內的 store 程式碼可在多種環境下執行。
+
+### 通用路由
+
+上一章對顏色管理加上 react-router-dom。router 根據瀏覽器目前位置判斷要繪製哪一個元件。router 也可在伺服器上繪製 —— 我們只需要提供位置或路由。
+
+目前我們使用 HashRouter。此 router 自動在每個路由前面加上 #。要同構使用 router，必須以 BrowserRouter 取代 HashRouter，它會從路由刪除前綴的 #。
+
+```javascript
+import {BrowserRouter} from 'react-router-dom';
+
+...
+
+render(
+  <Provider store={store}>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </Provider>,
+  document.getElementById('react-container')
+);
+```
+
+現在顏色管理的路由不再有井號。此時管理應用程式還是可以運作，啟動它並選取一個顏色。Color 容器被繪製，它使用 ColorDetails 元件改變整個畫面的背景。
+
+現在位置列：
+
+```
+http://localhost:3000/8658c1d0-9eda-4a90-95e1-8001e8eb6036
+```
+
+路由前面不再有 #。現在重新載入網頁：
+
+```
+Cannot GET /8658c1d0-9eda-4a90-95e1-8001e8eb6036
+```
+
+重新載入網頁使得瀏覽器以目前的路由發出 GET 請求給伺服器。# 用於防止發出 GET 請求。我們使用 BrowserRouter 是因為想要發送 GET 請求給伺服器。為在伺服器上繪製 router，我們需要位置 —— 我們需要路由。此路由會用在伺服器上以告訴 router 去繪製 Color 容器。想要同構的繪製路由時使用 BrowserRouter。
+
+現在我們知道使用者請求什麼內容，讓我們在伺服器上繪製 UI。為在伺服器上繪製 router，我們必須對 Express 組態做一些重大的改變。我們必須匯入幾個模組：
+
+```javascript
+import {Provider} from 'react-redux';
+import {compose} from 'redux';
+import {renderToString} from 'react-dom/server';
+import {StaticRouter} from 'react-router-dom';
+```
+
+在伺服器上，想要將元件樹繪製到字串時使用 StaticRouter。
+
+為產生 HTML，有三個步驟：
+
+1. 使用 serverStore 的資料建構在用戶端執行的 store
+2. 使用 StaticRouter 將元件樹繪製成 HTML
+3. 建構傳送給用戶端的 HTML 網頁
+
+我們為每個步驟建構一個函式並組成 htmlResponse 單一函式：
+
+```javascript
+const htmlResponse = compose(
+  buildHTMLPage,
+  renderComponentsToHTML,
+  makeClientStoreFrom(serverStore)
+);
+```
+
+makeClientStoreFrom (serverStore) 是個高階函式。開始時，此函式以 serverStore 呼叫一次。它回傳每個請求會呼叫的函式，被回傳的函式可存取 serverStore。
+
+呼叫 htmlResponse 時，它預期一個參數：使用者請求 url。對步驟一，我們會建構包裝 url 與使用目前 serverStore 的狀態建構新用戶端 store 之高階函式。store 與 url 會以一個物件傳遞給下一個函式，步驟 2：
+
+```javascript
+const makeClientStoreFrom = store => url =>
+  ({
+    store: storeFactory(false, store.getState()),
+    url
+  });
+```
+
+makeClientStoreFrom 函式的輸出成為 renderComponentToHTML 函式的輸入。此函式預期 url 與 store 包裝在單一參數中：
+
+
+```javascript
+const renderComponentsToHTML = ({url, store}) =>
+  ({
+    state: store.getState(),
+    html: renderToString(
+      <Provider store={store}>
+        <StaticRouter location={url} context={{}}>
+          <App/>
+        </StaticRouter>
+      </Provider>
+    )
+  });
+```
+
+StaticRouter 元件根據請求的位置繪製 UI。StaticRouter 需要 location 與 context。請求的 url 傳給 location 屬性且空物件傳給 context。將執行元件繪製成 HTML 字串時，位置會被代入且 staticRouter 會繪製正確的路由。
+
+此函式回傳建構網頁的兩個必要元件：
+
+- 管理程式目前的狀態
+- 繪製成 HTML 字串的 UI
+
+state 與 html 可用於 buildHTMLPage 這個組合函式：
+
+```javascript
+const buildHTMLPage = ({html, state}) => `
+  <!doctype html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Universal Color Organizer</title>
+  </head>
+  <body>
+  <div id="react-container">${html}</div>
+  <script>
+      window.__INITIAL_STATE__ = ${JSON.stringify(state)}
+  </script>
+  <script src="/bundle.js"></script>
+  </body>
+  </html>
+`;
+```
+
+現在顏色管理是同構的。它會在伺服器繪製 UI 然後以文字傳送給用戶端，還會直接在回應中夾帶初始狀態。
+
+瀏覽器先以 HTML 回應中的 UI 顯示。載入程式包後，它會重新繪製 UI 並從此接手。此後，包括瀏覽在內的所有使用者互動會發生在用戶端。我們的單頁應用程式還是繼續運作，除非瀏覽器重新載入網頁，此時伺服器的繪製程序會再來一次。
+
+```javascript
+// src/server/app.js
+import express from 'express';
+import path from 'path';
+import fs from 'fs';
+import {Provider} from 'react-redux';
+import {compose} from 'redux';
+import {renderToString} from 'react-dom/server';
+import storeFactory from "../store";
+import initialState from '../../data/initialState';
+import App from "../components/App";
+
+const fileAssets = express.static(path.join(__dirname, '../../dist/assets'));
+
+const serverStore = storeFactory(true, initialState);
+
+serverStore.subscribe(() =>
+  fs.writeFile(
+    path.join(__dirname, '../../data/initialState.json'),
+    JSON.stringify(serverStore.getState()),
+    error => (error) ?
+      console.log('Error saving state!', error) :
+      null
+  )
+);
+
+const logger = (req, res, next) => {
+  console.log(`${req.method} request for ${req.url}`);
+  next();
+};
+
+const buildHTMLPage = ({html, state}) => `
+  <!doctype html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Universal Color Organizer</title>
+  </head>
+  <body>
+  <div id="react-container">${html}</div>
+  <script>
+      window.__INITIAL_STATE__ = ${JSON.stringify(state)}
+  </script>
+  <script src="/bundle.js"></script>
+  </body>
+  </html>
+`;
+
+const renderComponentsToHTML = ({url, store}) =>
+  ({
+    state: store.getState(),
+    html: renderToString(
+      <Provider store={store}>
+        <StaticRouter location={url} context={{}}>
+          <App/>
+        </StaticRouter>
+      </Provider>
+    )
+  });
+
+const makeClientStoreFrom = store => url =>
+  ({
+    store: storeFactory(false, store.getState()),
+    url
+  });
+
+const htmlResponse = compose(
+  buildHTMLPage,
+  renderComponentsToHTML,
+  makeClientStoreFrom(serverStore)
+);
+
+const respond = ({url}, res) =>
+  res.status(200).send(
+    htmlResponse(url)
+  );
+
+const addStoreToRequestPipeline = (req, res, next) => {
+  req.store = serverStore;
+  next();
+};
+
+export default express()
+  .use(logger)
+  .use(fileAssets)
+  .use(addStoreToRequestPipeline)
+  .use(respond);
+```
+
+我們的應用程式現在能讓使用者儲存書籤，並傳送同構繪製的 URL 給其他使用者。router 根據 URL 判斷繪製什麼內容。它在伺服器上這麼做，這表示使用者可快速的存取內容。
+
+同構應用程式兩面玲瓏：它們有伺服器繪製的快速、控制與安全，且同時享受單頁應用程式的低頻寬與速度。同構 React 應用程式基本上是伺服器端繪製的 SPA，提供建構又酷又快速有效率的應用程式的基礎。
+
+```javascript
+// src/index.js
+import React from 'react';
+import {render} from 'react-dom';
+import App from "./components/App";
+import storeFactory from './store';
+import {Provider} from "react-redux";
+import {BrowserRouter} from 'react-router-dom';
+
+const store = storeFactory(false, window.__INITIAL_STATE__);
+
+window.React = React;
+window.store = store;
+
+render(
+  <Provider store={store}>
+    <BrowserRouter>
+      <App />
+    </BrowserRouter>
+  </Provider>,
+  document.getElementById('react-container')
+);
+```
+
+### 運用伺服器繪製樣式
+
+目前我們在伺服器上繪製 HTML，但 CSS 在瀏覽器載入程式包前不會繪製，使得畫面會奇怪的閃動更新。一開始，我們會在瀏覽器看到載入 CSS 前還沒有套用樣式的內容。瀏覽器關閉 JavaScript 時，使用者完全不會看到 CSS 樣式，因為它們是埋在 JavaScript 程式包中。
+
+解決方案是直接在回應中加入樣式。我們先從 webpack 擷取 CSS 到另一個檔案。你必須安裝 extract-text-webpack-plugin：
+
+```shell
+$ npm i extract-text-webpack-plugin
+```
+
+webpack 組態還需要這個外掛：
+
+```javascript
+const ExtractTextPlugin = require("extract-text-webpack-plugin");
+```
+
+還有，在 webpack 組態中，我們必須以使用 ExtractTextPlugin 的載入程序取代 CSS 與 SCSS 載入程序：
+
+```javascript
+{
+  test: /\.css$/,
+  loader: ExtractTextPlugin.extract({
+    fallback: 'style-loader',
+    use: ['style-loader', 'css-loader', {
+      loader: 'postcss-loader',
+      options: {
+        plugins: () => [require('autoprefixer')]
+      }
+    }]
+  })
+},
+{
+  test: /\.scss/,
+  loader: ExtractTextPlugin.extract({
+    fallback: 'style-loader',
+    use: ['css-loader', {
+      loader: 'postcss-loader',
+      options: {
+        plugins: () => [require('autoprefixer')]
+      }
+    }, 'sass-loader']
+  })
+}
+```
+
+我們還必須在外掛陣列引入該外掛。引入該外掛時，我們指定要擷取的 CSS 檔案名稱：
+
+```javascript
+plugins: [
+  new ExtractTextPlugin("bundle.css"),
+  new webpack.DefinePlugin({
+    "process.env": {
+      NODE_ENV: JSON.stringify("production")
+    }
+  }),
+...
+```
+
+接下來 webpack 執行，它不會在 JavaScript 程式包中加入該 CSS；所有 CSS 會放在 ./assets/bundle.css 中。
+
+我們必須修改 Express 組態。程式啟動時，CSS 被儲存成全域字串。我們可使用檔案系統或 fs 模組讀取文字檔案的內容到 staticCSS 變數中：
+
+```javascript
+const staticCSS = fs.readFileSync(path.join(__dirname, '../../dist/assets/bundle.css'));
+```
+
+以 CSS 直接寫入回應的 `<style>` 標籤中：
+
+```javascript
+const buildHTMLPage = ({html, state}) => `
+  <!doctype html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Universal Color Organizer</title>
+    <style>${staticCSS}</style>
+  </head>
+  <body>
+  <div id="react-container">${html}</div>
+  <script>
+      window.__INITIAL_STATE__ = ${JSON.stringify(state)}
+  </script>
+  <script src="/bundle.js"></script>
+  </body>
+  </html>
+`;
+```
+
+現在 CSS 直接埋在回應中，不再有奇怪的樣式閃動。關掉 JavaScript 時樣式還在。
+
+現在我們有個同構的顏色管理程式共用通用的 JavaScript。一開始，顏色管理程式在伺服器繪製，但載入後也在瀏覽器上繪製。瀏覽器接手後，顏色管理程式的行為如同單頁應用程式。
+
+## 與伺服器溝通
+
+使用者在本機分發 action、本機的狀態改變、本機的 UI 更新。所有東西在瀏覽器上運行，但被分發的 action 沒有回到伺服器。
+
+接下來我們不只確保資料儲存在伺服器上，我們還會確保 action 物件在伺服器上建構並分發到兩邊的 store。
+
+### 在伺服器處理 action
+
+在顏色管理程式中，我們會整合處理資料的 REST API。action 會在用戶端初始化、在伺服器完成，然後分發給兩邊的 store。serverStore 會儲存新狀態到 JSON，而用戶端 store 會觸發 UI 更新。兩個 store 會分發相同的 action。
+
+![](universal-action.png)
+
+讓我們看個分發 ADD_COLOR 的完整例子：
+
+1. 以新名稱與顏色分發 action 建構程序 addColor()
+2. 在新的 POST 請求中傳送資料給伺服器
+3. 在伺服器建構與分發新的 ADD_COLOR
+4. 在回應內容中傳送 ADD_COLOR
+5. 在用戶端解析回應內容並分發 ADD_COLOR
+
+要做的第一件事情就是建構 REST API。建構 `./src/server/color-api.js` 的檔案。
+
+每個 action 都以相同方式處理：在伺服器分發然後傳送給用戶端。讓我們建構分發 action 給 serverStore 並以回應物件傳送 action 給用戶端的函式：
+
+```javascript
+const dispatchAndRespond = (req, res, action) => {
+  req.store.dispatch(action);
+  res.status(200).json(action);
+}
+```
+
+有 action 時，我們可以使用此函式分發 action 並傳送回應給用戶端。
+
+我們必須使用處理各種 HTTP 請求的 Express 的 Router 建構一些 HTTP 端點。我們會建構在 /api/colors 處理 GET、POST、PUT 與 DELETE 請求的路由。Express 的 Router 可建構這些路由。每個路由帶有建構不同 action 物件並加上請求與回應物件傳送給 dispatchAndRespond 函式的邏輯：
+
+```javascript
+import {Router} from 'express';
+import {v4} from 'uuid';
+
+const dispatchAndRespond = (req, res, action) => {
+  req.store.dispatch(action);
+  res.status(200).json(action);
+};
+
+const router = Router();
+
+router.get('/colors', (req, res) =>
+  res.status(200).json(req.store.getState().colors)
+);
+
+router.post('/colors', (req, res) =>
+  dispatchAndRespond(req, res, {
+    type: 'ADD_COLOR',
+    id: v4(),
+    title: req.body.title,
+    color: req.body.color,
+    timestamp: new Date().toString()
+  })
+);
+
+router.put('/color/:id', (req, res) =>
+  dispatchAndRespond(req, res, {
+    type: 'RATE_COLOR',
+    id: req.params.id,
+    rating: parseInt(req.body.rating)
+  })
+);
+
+router.delete('/color/:id', (req, res) =>
+  dispatchAndRespond(req, res, {
+    type: 'REMOVE_COLOR',
+    id: req.params.id
+  })
+);
+
+export default router;
+```
+
+現在我們定義了路由，我們必須將它們加入 Express 應用程式的組態。首先，安裝 Express 的 body-parser：
+
+```shell
+$ npm i boedy-parser --save
+```
+
+body-parser 解析請求內容並取得傳給路由的變數，並須從用戶端取得新顏色與評分的資訊。我們必須在 Express 應用程式組態加入這個中介軟體。讓我們匯入 body-parser 與新路由到 ./server/app.js 檔案中：
+
+```javascript
+import bodyParser from 'body-parser';
+import api from './color-api';
+
+export default express()
+  .use(logger)
+  .use(fileAssets)
+  .use(bodyParser.json())
+  .use(addStoreToRequestPipeline)
+  .use('/api', api)
+  .use(respond);
+```
+
+在 API 之前加入 bodyParser 以讓資料在 API 處理請求時被解析很重要。
+
+bodyParser.json() 解析 JSON 格式請求內容。
+
+現在，我們的 Express 應用程式有端點回應 HTTP 請求，可以修改前端 action 建構程序以與這些端點溝通。
+
+### action 與 Redux Thunk
+
+主從通訊的一個問題是延遲，也就是傳送請求後等待回應的時間。我們的 action 建構程序在分發 action 前必須等待回應，因為我們的解決方案中的 action 本身要從伺服器送到用戶端。Redux 處理非同步 action 的中介軟體是：redux-thunk。
+
+接下來我們會使用 redux-thunk 重新撰寫 action 建構程序。這些稱為 thunk 的 action 建構程序能讓我們在本機分發 action 前等待伺服器的回應。thunk 是高階函式。相較於 action 物件，它們回傳其他函式。讓我們安裝 redux-thunk：
+
+
+```shell
+$ npm i redux-thunk --save
+```
+
+redux-thunk 是中介軟體；它需要與 storeFactory 合作：
+
+```javascript
+// src/store/index.js
+import thunk from 'redux-thunk';
+
+const middleware = server => [
+  (server) ? serverLogger : clientLogger,
+  thunk
+];
+
+const storeFactory = (server = false, initialState = {}) =>
+  applyMiddleware(...middleware(server))(createStore)(
+    combineReducers({colors}),
+    initialState
+  );
+```
+
+讓我們檢視目前的新增顏色的 action 建構程序：
+
+```javascript
+export const addColor = (title, color) =>
+  ({
+    type: C.ADD_COLOR,
+    id: v4(),
+    title,
+    color,
+    timestamp: new Date().toString()
+  });
+
+...
+
+store.dispatch(addColor('jet', '#000000'));
+```
+
+此 action 建構程序回傳 addColor 這個 action 物件，該物件立刻被分發到 store。現在讓我們檢視 thunk 版本的 addColor：
+
+```javascript
+export const addColor = (title, color) =>
+  (dispatch, getState) => {
+
+    setTimeout(() =>
+      dispatch({
+        type: C.ADD_COLOR,
+        index: getState().colors.length + 1,
+        title,
+        color,
+        timestamp: new Date().toString()
+      })
+    , 2000);
+  
+  };
+
+...
+
+store.dispatch(addColor('jet', '#000000'));
+```
+
+thunk 回傳的是函式而非 action。回傳的函式是以參數接收 store 的 dispatch 與 getState 方法的 callback。可在就緒時分發 action。此例中，分發新顏色會有前兩秒延遲。
+
+除了 dispatch，thunk 還可存取 store 的 getState 方法。此例中，我們用它目前狀態中的顏色數量建構索引欄。此函式在根據 store 的資料建構 action 時很有用。
+
+> Top! 並非每個 action 建構程序都要做成 trunk。redux-thunk 中介軟體知道 thunk 與 action 物件的差別。action 物件會立即分發。
+
+thunk 有其他好處。它們可以非同步的呼叫 dispatch 或 getState，且不限於分發一種 action。下一個範例中， thunk 立即分發 RANDOM_RATING_STARTED，並重複分發隨機評分顏色的 RATE_COLOR：
+
+```javascript
+export const rateColor = id =>
+  (dispatch, getState) => {
+    dispatch({type: 'RANDOM_RATING_STARTED'});
+    setInterval(() =>
+      dispatch({
+        type: 'RATE_COLOR',
+        id,
+        rating: Match.floor(Match.randow()*5)
+      })
+    , 1000);
+  };
+
+...
+
+store.dispatch(
+  rateColor('f9005b4e-975e-433d-a646-79df172e1dbb')
+);
+```
+
+這些是 thunk 範例。讓我們建構顏色管理的 thunk 以取代目前的 action 建構程序。
+
+首先，建構 fetchThenDispatch 函式。此函式使用 isomorphic-fetch 傳送請求到網路服務並自動的分發回應：
+
+```javascript
+import fetch from 'isomorphic-fetch';
+
+const parseResponse = response => response.json();
+
+const logError = error => console.error(error);
+
+const fetchThenDispatch = (dispatch, url, method, body) =>
+  fetch(
+    url,
+    {
+      method,
+      body,
+      headers: {'Content-Type': 'application/json'}
+    }
+  ).then(parseResponse)
+    .then(dispatch)
+    .catch(logError);
+````
+
+使用 fetchThenDispatch 函式建構 thunk：
+
+```javascript
+export const addColor = (title, color) =>
+  (dispatch) =>
+    fetchThenDispatch(
+      dispatch,
+      '/api/colors',
+      'POST',
+      JSON.stringify({title, color})
+    );
+
+export const removeColor = id =>
+  dispatch =>
+    fetchThenDispatch(
+      dispatch,
+      `/api/color/${id}`,
+      'DELETE'
+    );
+
+export const rateColor = (id, rating) =>
+  dispatch =>
+    fetchThenDispatch(
+      dispatch,
+      `/api/color/${id}`,
+      'PUT',
+      JSON.stringify({rating})
+    );
+```
+
+接下來執行應用程式時，你可以從控制台紀錄看到 action 被分發到兩邊的 store。瀏覽器控制台與伺服器控制台。

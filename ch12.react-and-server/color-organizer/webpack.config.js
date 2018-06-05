@@ -1,4 +1,5 @@
 const webpack = require('webpack');
+const ExtractTextPlugin = require("extract-text-webpack-plugin");
 const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin');
 const path = require('path');
 
@@ -32,25 +33,32 @@ module.exports = {
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader', {
-          loader: 'postcss-loader',
-          options: {
-            plugins: () => [require('autoprefixer')]
-          }
-        }]
+        loader: ExtractTextPlugin.extract({
+          fallback: 'style-loader',
+          use: ['style-loader', 'css-loader', {
+            loader: 'postcss-loader',
+            options: {
+              plugins: () => [require('autoprefixer')]
+            }
+          }]
+        })
       },
       {
         test: /\.scss/,
-        use: ['style-loader', 'css-loader', {
-          loader: 'postcss-loader',
-          options: {
-            plugins: () => [require('autoprefixer')]
-          }
-        }, 'sass-loader']
+        loader: ExtractTextPlugin.extract({
+          fallback: 'style-loader',
+          use: ['css-loader', {
+            loader: 'postcss-loader',
+            options: {
+              plugins: () => [require('autoprefixer')]
+            }
+          }, 'sass-loader']
+        })
       }
     ]
   },
   plugins: [
+    new ExtractTextPlugin("bundle.css"),
     new webpack.DefinePlugin({
       "process.env": {
         NODE_ENV: JSON.stringify("production")
