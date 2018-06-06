@@ -1128,3 +1128,59 @@ export const rateColor = (id, rating) =>
 ```
 
 接下來執行應用程式時，你可以從控制台紀錄看到 action 被分發到兩邊的 store。瀏覽器控制台與伺服器控制台。
+
+#### 使用 thunk 與 websocket
+
+顏色管理程式透過 REST 與伺服器通訊。thunk 也可透過 websocket 傳送與接收。websocket 是用戶端與伺服器間的雙向連線。websocket 可傳送資料到伺服器，但伺服器也可傳送資料到用戶端。
+
+使用 websocket 與 thunk 的一種方式是分發 connect 這個 action 建構程序。舉例來說，假設我們想要連接訊息伺服器：
+
+```javascript
+store.dispatch(connectToMessageSocket());
+```
+
+thunk 可任意呼叫分發。我們建構傾聽訊息的 thunk 並於接收時分發 NEW_MESSAGE。下一個範例使用 socket.io-client 連接 socket.io 伺服器並傾聽訊息：
+
+```javascript
+import io from 'socket.io-client';
+
+const connectToChatSocket = () => dispatch => {
+  
+  dispatch({type: 'CONNECTING'});
+  
+  let socket = io('/message-socket');
+  
+  socket.on('connect', () =>
+    dispatch({type: 'CONNECTED', id: socket.id})
+  );
+  
+  socket.on('message', (message, user) =>
+    dispatch({type: 'NEW_MESSAGE', message, user})
+  );
+  
+}
+
+export default connectToChatSocket;
+```
+
+connectToChatSocket 被呼叫時，一個 CONNECTING 被分發。然後我們嘗試連接訊息的 socket。連接後，socket 會以連接事件回應。於發生時，我們可以分發 CONNECTED 與關於目前 socket 的資訊。
+
+伺服器送出新訊息時，訊息事件在 socket 上發出。每當 NEW_MESSAGE 從伺服器收到用戶端時我們可以在本機分發此 action。
+
+你建構的每個 React 應用程式幾乎都需要某種網頁伺服器。有時候你只需要網頁伺服器來安置應用程式，其他狀況則需要與網路服務通訊。有些高流量的應用程式需要在多個平台上完全不同的解決方案。
+
+#### 進階資料擷取
+
+若你正在設計在多個平台上共用資料的高流量應用程式，你也許應該看看 Relay 與 GraphQL 或 Falcor 等框架。這些框架提供更好的應用程式必要資料取得解決方案。
+
+GraphQL 是 Facebook 開發的宣告式資料查詢解決方案，可從多個來源查詢資料。GraphQL 可用於各種語言與平台。
+
+Relay 是個函式庫，也是 Facebook 開發的，它透過連接 GraphQL 查詢與 React 或 React Native 元件處理用戶端應用程式的資料擷取。
+
+GraphQL 與 Relay 的學習曲線有點難度，但若喜歡宣告式程式設計則值得一試。
+
+Falcor 是 Netflix 開發的框架，處理擷取與有效使用資料的問題。如同 GraphQL，Falcor 可讓你從一個地方查詢多個服務的資料。Falcor 使用 JavaScript 查詢資料，其學習曲線可能對 JavaScript 開發者比較容易一點。
+
+React 開發的關鍵是知道使用正確的工具。你已經學到許多建構良好應用程式的工具。只使用有需要的。若你的應用程式不依靠大量資料，別使用 Redux。React 的狀態是適合大小應用程式的最佳解決方案。你的應用程式也許不需要伺服器繪製，除非是有大量互動的應用程式需要大量行動流量，否則先別考慮使用它。
+
+使用 React、Redux 與函式性、宣告式 JavaScript 建構應用程式很有意思，我們等不及看到你的作品。
